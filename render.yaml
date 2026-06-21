@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: tradeassist-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: FRONTEND_ORIGIN
+        value: https://your-app.vercel.app   # update after Vercel deploy
+      - key: GEMINI_API_KEY
+        sync: false   # set manually in Render dashboard (secret)
+      - key: OPENAI_API_KEY
+        sync: false
+    plan: free

@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-gray-900 border border-gray-800 rounded-xl p-5;
+  }
+  .panel-title {
+    @apply text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4;
+  }
+  .metric-card {
+    @apply bg-gray-800 rounded-lg p-4 flex flex-col gap-1;
+  }
+  .metric-label {
+    @apply text-xs text-gray-400 uppercase tracking-wide;
+  }
+  .metric-value {
+    @apply text-lg font-bold text-white;
+  }
+  .badge-bullish {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-900 text-emerald-300;
+  }
+  .badge-bearish {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900 text-red-300;
+  }
+  .badge-neutral {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-700 text-gray-300;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #111827; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
