@@ -26,9 +26,19 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+# Build allowed origins list — include all Vercel preview URL patterns
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    frontend_origin,
+]
+
+# Also allow all vercel.app subdomains (covers preview deploys)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
