@@ -158,7 +158,7 @@ function ChartInner({ ticker }: Props) {
     }
 
     // Line helper
-    const addLine = (field: string, color: string, dash = false, lw = 1) => {
+    const addLine = (field: string, color: string, dash = false, lw: 1|2|3|4 = 1) => {
       try {
         const s = pc.addSeries(LineSeries, {
           color, lineWidth: lw, lineStyle: dash ? 2 : 0,
@@ -201,7 +201,7 @@ function ChartInner({ ticker }: Props) {
         const sc = subChart.current
 
         if (subPanel === 'rsi') {
-          const rsiS = sc.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true })
+          const rsiS = sc.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: true })
           const pts = bars.filter((d: any) => d.rsi != null).map((d: any) => ({ time: d.date as Time, value: d.rsi as number }))
           if (pts.length) rsiS.setData(pts)
           rsiS.createPriceLine({ price: 70, color: COLORS.bear, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OB' })
