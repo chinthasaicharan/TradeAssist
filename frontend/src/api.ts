@@ -57,3 +57,6 @@ export const getBTST = (ticker: string) =>
 
 export const sendChatMessage = (ticker: string, body: ChatRequest) =>
   api.post<ChatResponse>(`/chat/${ticker}`, body).then(r => r.data)
+
+export const getChartData = (ticker: string, interval: '1d' | '1wk' | '1mo') =>
+  api.get<any>(`/chart/${ticker}`, { params: { interval } }).then(r => r.data)

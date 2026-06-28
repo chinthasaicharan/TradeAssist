@@ -119,6 +119,61 @@ export function ValuationPanel({ ticker }: Props) {
           </div>
         </div>
       )}
+
+      {/* ── Order Book Proxy ── */}
+      {(data.volume_vs_avg != null || data.day_range_position != null || data.short_ratio != null || data.bid_ask_spread_pct != null) && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">Order Book Signals</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {data.volume_vs_avg != null && (
+              <div className="metric-card">
+                <span className="metric-label">Vol vs Avg</span>
+                <span className={`metric-value ${data.volume_vs_avg > 1.5 ? 'text-emerald-400' : data.volume_vs_avg < 0.5 ? 'text-red-400' : 'text-white'}`}>{data.volume_vs_avg.toFixed(2)}x</span>
+                <span className="text-xs text-gray-500">{data.volume_vs_avg > 1.5 ? 'High conviction' : data.volume_vs_avg < 0.7 ? 'Low interest' : 'Normal'}</span>
+              </div>
+            )}
+            {data.day_range_position != null && (
+              <div className="metric-card">
+                <span className="metric-label">Day Range Pos.</span>
+                <span className="metric-value">{(data.day_range_position * 100).toFixed(0)}%</span>
+                <div className="h-1.5 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                  <div className="h-full bg-brand-500 rounded-full" style={{ width: `${data.day_range_position * 100}%` }} />
+                </div>
+              </div>
+            )}
+            {data.week52_range_position != null && (
+              <div className="metric-card">
+                <span className="metric-label">52W Range Pos.</span>
+                <span className="metric-value">{(data.week52_range_position * 100).toFixed(0)}%</span>
+                <div className="h-1.5 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                  <div className={`h-full rounded-full ${data.week52_range_position > 0.8 ? 'bg-red-500' : data.week52_range_position < 0.2 ? 'bg-emerald-500' : 'bg-brand-500'}`}
+                    style={{ width: `${data.week52_range_position * 100}%` }} />
+                </div>
+              </div>
+            )}
+            {data.short_ratio != null && (
+              <div className="metric-card">
+                <span className="metric-label">Short Ratio</span>
+                <span className={`metric-value ${data.short_ratio > 5 ? 'text-red-400' : 'text-white'}`}>{data.short_ratio.toFixed(1)}d</span>
+                <span className="text-xs text-gray-500">{data.short_ratio > 5 ? 'Heavy short' : 'Normal'}</span>
+              </div>
+            )}
+            {data.shares_short_pct != null && (
+              <div className="metric-card">
+                <span className="metric-label">Float Shorted</span>
+                <span className={`metric-value ${data.shares_short_pct > 0.1 ? 'text-red-400' : 'text-white'}`}>{(data.shares_short_pct * 100).toFixed(1)}%</span>
+              </div>
+            )}
+            {data.bid_ask_spread_pct != null && (
+              <div className="metric-card">
+                <span className="metric-label">Bid-Ask Spread</span>
+                <span className="metric-value">{data.bid_ask_spread_pct.toFixed(3)}%</span>
+                <span className="text-xs text-gray-500">{data.bid_ask_spread_pct < 0.05 ? 'Tight' : 'Wide'}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,7 +4,7 @@ from datetime import datetime, timezone as _tz
 from typing import Any
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from models import (
     QuoteResponse, FundamentalsResponse, FinancialsResponse, FinancialPeriod,
     TechnicalResponse, PriceLevel, TrendResponse, TrendSignal,
@@ -255,44 +255,227 @@ async def get_technical(ticker: str):
     info = await yfc.fetch_info(ticker)
 
     closes  = hist["Close"].tolist()
+    highs   = hist["High"].tolist()
+    lows    = hist["Low"].tolist()
     volumes = hist["Volume"].tolist()
 
-    # Compute MAs
+    # ── MAs ───────────────────────────────────────────────────────────────
     ma20_l  = compute_sma(closes, 20)
     ma50_l  = compute_sma(closes, 50)
     ma200_l = compute_sma(closes, 200)
-    rsi_val = compute_rsi(closes)
 
-    price_history = [
-        {
-            "date":   str(idx.date()),
-            "close":  round(float(row["Close"]), 2),
-            "volume": int(row["Volume"]),
-            "ma20":   ma20_l[i],
-            "ma50":   ma50_l[i],
-            "ma200":  ma200_l[i],
-        }
-        for i, (idx, row) in enumerate(hist.iterrows())
-    ]
+    # ── Bollinger Bands (20, 2) ───────────────────────────────────────────
+    bb_upper_l: list[float | None] = []
+    bb_lower_l: list[float | None] = []
+    bb_mid_l:   list[float | None] = []
+    for i in range(len(closes)):
+        if i < 19:
+            bb_upper_l.append(None); bb_lower_l.append(None); bb_mid_l.append(None)
+        else:
+            window = closes[i-19:i+1]
+            mid  = sum(window) / 20
+            std  = (sum((x - mid)**2 for x in window) / 20) ** 0.5
+            bb_upper_l.append(round(mid + 2*std, 2))
+            bb_lower_l.append(round(mid - 2*std, 2))
+            bb_mid_l.append(round(mid, 2))
 
+    # ── ATR (14) ──────────────────────────────────────────────────────────
+    def _atr(period: int = 14) -> list[float | None]:
+        trs: list[float] = []
+        for i in range(1, len(closes)):
+            tr = max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1]))
+            trs.append(tr)
+        out: list[float | None] = [None]
+        atr_val = sum(trs[:period]) / period if len(trs) >= period else None
+        out += [None] * (period - 1)
+        if atr_val:
+            out.append(round(atr_val, 2))
+            for tr in trs[period:]:
+                atr_val = (atr_val * (period-1) + tr) / period
+                out.append(round(atr_val, 2))
+        return out
+
+    atr_l = _atr(14)
+
+    # ── Supertrend (10, 3) ────────────────────────────────────────────────
+    st_mult = 3.0
+    st_period = 10
+    supertrend_l: list[float | None] = [None] * len(closes)
+    st_dir_l:     list[int] = [1] * len(closes)      # 1=bull, -1=bear
+
+    def _atr_single(i: int, p: int = st_period) -> float:
+        if i < p:
+            return (highs[i] - lows[i])
+        vals = []
+        for j in range(i-p+1, i+1):
+            tr = max(highs[j]-lows[j],
+                     abs(highs[j]-closes[j-1]) if j>0 else 0,
+                     abs(lows[j]-closes[j-1]) if j>0 else 0)
+            vals.append(tr)
+        return sum(vals) / p
+
+    for i in range(st_period, len(closes)):
+        atr_v = _atr_single(i)
+        hl2 = (highs[i] + lows[i]) / 2
+        basic_ub = hl2 + st_mult * atr_v
+        basic_lb = hl2 - st_mult * atr_v
+
+        prev_st  = supertrend_l[i-1]
+        prev_dir = st_dir_l[i-1]
+
+        if prev_st is None:
+            supertrend_l[i] = round(basic_lb, 2)
+            st_dir_l[i] = 1
+            continue
+
+        if prev_dir == 1:
+            final_ub = basic_ub
+            final_lb = max(basic_lb, prev_st)
+        else:
+            final_ub = min(basic_ub, prev_st)
+            final_lb = basic_lb
+
+        if closes[i] > final_ub:
+            st_dir_l[i] = 1
+            supertrend_l[i] = round(final_lb, 2)
+        elif closes[i] < final_lb:
+            st_dir_l[i] = -1
+            supertrend_l[i] = round(final_ub, 2)
+        else:
+            st_dir_l[i] = prev_dir
+            supertrend_l[i] = round(final_lb if prev_dir == 1 else final_ub, 2)
+
+    # ── MACD (full series for chart) ──────────────────────────────────────
+    def _ema_series(data: list[float], span: int) -> list[float]:
+        k = 2 / (span + 1)
+        out = [data[0]]
+        for x in data[1:]:
+            out.append(x * k + out[-1] * (1 - k))
+        return out
+
+    ema12 = _ema_series(closes, 12)
+    ema26 = _ema_series(closes, 26)
+    macd_line_l = [round(a - b, 4) for a, b in zip(ema12, ema26)]
+    signal_line_l = _ema_series(macd_line_l[25:], 9)
+    # Pad signal to match length
+    signal_padded = [None]*25 + [round(v, 4) for v in signal_line_l]
+    hist_l = [round(macd_line_l[i] - (signal_padded[i] or 0), 4)
+              if signal_padded[i] is not None else None
+              for i in range(len(macd_line_l))]
+
+    # ── RSI series ────────────────────────────────────────────────────────
+    rsi_series: list[float | None] = [None] * 14
+    for i in range(14, len(closes)):
+        chunk = closes[i-14:i+1]
+        deltas_ = [chunk[j]-chunk[j-1] for j in range(1, len(chunk))]
+        g = sum(d for d in deltas_ if d > 0) / 14
+        l_ = sum(-d for d in deltas_ if d < 0) / 14
+        rsi_series.append(round(100 - 100/(1+g/l_), 2) if l_ != 0 else 100.0)
+
+    # ── Build price_history ───────────────────────────────────────────────
+    price_history = []
+    for i, (idx, row) in enumerate(hist.iterrows()):
+        price_history.append({
+            "date":        str(idx.date()),
+            "open":        round(float(row["Open"]), 2),
+            "high":        round(float(row["High"]), 2),
+            "low":         round(float(row["Low"]), 2),
+            "close":       round(float(row["Close"]), 2),
+            "volume":      int(row["Volume"]),
+            "ma20":        ma20_l[i],
+            "ma50":        ma50_l[i],
+            "ma200":       ma200_l[i],
+            "bb_upper":    bb_upper_l[i],
+            "bb_lower":    bb_lower_l[i],
+            "bb_mid":      bb_mid_l[i],
+            "supertrend":  supertrend_l[i],
+            "st_bull":     st_dir_l[i] == 1,
+            "macd":        macd_line_l[i],
+            "macd_signal": signal_padded[i],
+            "macd_hist":   hist_l[i],
+            "rsi":         rsi_series[i] if i < len(rsi_series) else None,
+            "atr":         atr_l[i] if i < len(atr_l) else None,
+        })
+
+    # ── Snapshot values ───────────────────────────────────────────────────
     supports, resistances = compute_support_resistance(closes)
     current_price = safe_float(info.get("currentPrice") or info.get("regularMarketPrice")) or closes[-1]
 
     ma20  = next((v for v in reversed(ma20_l)  if v is not None), None)
     ma50  = next((v for v in reversed(ma50_l)  if v is not None), None)
     ma200 = next((v for v in reversed(ma200_l) if v is not None), None)
+    bb_u  = next((v for v in reversed(bb_upper_l) if v is not None), None)
+    bb_l  = next((v for v in reversed(bb_lower_l) if v is not None), None)
+    bb_m  = next((v for v in reversed(bb_mid_l)   if v is not None), None)
+    atr_v = next((v for v in reversed(atr_l)       if v is not None), None)
+    st_v  = supertrend_l[-1]
+    st_d  = st_dir_l[-1]
+    rsi_val = next((v for v in reversed(rsi_series) if v is not None), 50.0)
+    macd_v  = macd_line_l[-1]
+    macd_s  = signal_padded[-1]
+    macd_h  = hist_l[-1]
 
-    # MA trend: bullish if price > ma20 > ma50, or price > ma200 at minimum
+    # ── Fibonacci (52W swing) ─────────────────────────────────────────────
+    swing_high = max(highs)
+    swing_low  = min(lows)
+    diff = swing_high - swing_low
+    fib_levels = {
+        "0":     round(swing_low, 2),
+        "0.236": round(swing_low + 0.236 * diff, 2),
+        "0.382": round(swing_low + 0.382 * diff, 2),
+        "0.5":   round(swing_low + 0.5   * diff, 2),
+        "0.618": round(swing_low + 0.618 * diff, 2),
+        "0.786": round(swing_low + 0.786 * diff, 2),
+        "1":     round(swing_high, 2),
+    }
+
+    # ── Z-score (price vs 20d mean/std) ──────────────────────────────────
+    zscore: float | None = None
+    if len(closes) >= 20:
+        w20 = closes[-20:]
+        mu  = sum(w20) / 20
+        sigma = (sum((x-mu)**2 for x in w20) / 20) ** 0.5
+        zscore = round((closes[-1] - mu) / sigma, 2) if sigma > 0 else 0.0
+
+    # ── MA trend ──────────────────────────────────────────────────────────
     above_count = sum(1 for ma in [ma20, ma50, ma200] if ma and current_price > ma)
     ma_trend = "bullish" if above_count >= 2 else "bearish" if above_count == 0 else "neutral"
 
     rsi_signal = (
-        "Oversold"       if rsi_val < 30 else
-        "Near Oversold"  if rsi_val < 40 else
-        "Neutral"        if rsi_val < 60 else
+        "Oversold"        if rsi_val < 30 else
+        "Near Oversold"   if rsi_val < 40 else
+        "Neutral"         if rsi_val < 60 else
         "Near Overbought" if rsi_val < 70 else
         "Overbought"
     )
+
+    # ── Confidence score (0-100) ──────────────────────────────────────────
+    conf = 50.0
+    if ma_trend == "bullish":  conf += 12
+    elif ma_trend == "bearish": conf -= 12
+    if st_d == 1:  conf += 10
+    else:          conf -= 10
+    if macd_v and macd_s:
+        if macd_v > macd_s: conf += 8
+        else:               conf -= 8
+    if rsi_val < 30:  conf += 10
+    elif rsi_val > 70: conf -= 10
+    elif 40 <= rsi_val <= 60: conf += 5
+    if zscore and zscore < -1.5: conf += 8
+    elif zscore and zscore > 1.5: conf -= 8
+    if bb_u and bb_l and bb_m:
+        if current_price < bb_l: conf += 6
+        elif current_price > bb_u: conf -= 6
+    conf = round(max(10.0, min(95.0, conf)), 1)
+    conf_label = (
+        "Strong Buy"  if conf >= 72 else
+        "Buy"         if conf >= 58 else
+        "Hold"        if conf >= 42 else
+        "Sell"        if conf >= 28 else
+        "Strong Sell"
+    )
+
+    bb_width = round((bb_u - bb_l) / bb_m * 100, 2) if bb_u and bb_l and bb_m else None
 
     result = TechnicalResponse(
         ticker=ticker,
@@ -300,12 +483,21 @@ async def get_technical(ticker: str):
         price_history=price_history,
         support_levels=supports,
         resistance_levels=resistances,
-        ma20=ma20,
-        ma50=ma50,
-        ma200=ma200,
+        ma20=ma20, ma50=ma50, ma200=ma200,
         ma_trend=ma_trend,
         rsi=rsi_val,
         rsi_signal=rsi_signal,
+        macd=round(macd_v, 4),
+        macd_signal=round(macd_s, 4) if macd_s else None,
+        macd_hist=round(macd_h, 4) if macd_h else None,
+        bb_upper=bb_u, bb_middle=bb_m, bb_lower=bb_l, bb_width=bb_width,
+        supertrend=st_v,
+        supertrend_signal="bullish" if st_d == 1 else "bearish",
+        atr=atr_v,
+        fib_levels=fib_levels,
+        zscore=zscore,
+        confidence_score=conf,
+        confidence_label=conf_label,
     )
     cache.set(f"technical:{ticker}", result, ttl=3600)
     return result
@@ -554,6 +746,30 @@ SECTOR_VALUATION_BENCHMARKS: dict[str, dict] = {
 }
 
 
+# ── VALUATION helpers ─────────────────────────────────────────────────────
+
+def _bid_ask_spread(info: dict) -> float | None:
+    bid = safe_float(info.get("bid"))
+    ask = safe_float(info.get("ask"))
+    if bid and ask and bid > 0 and ask > bid:
+        mid = (bid + ask) / 2
+        return round((ask - bid) / mid * 100, 4)
+    return None
+
+def _volume_vs_avg(info: dict) -> float | None:
+    vol = safe_float(info.get("regularMarketVolume") or info.get("volume"))
+    avg = safe_float(info.get("averageVolume") or info.get("averageVolume10days"))
+    if vol and avg and avg > 0:
+        return round(vol / avg, 2)
+    return None
+
+def _range_position(price: Any, low: Any, high: Any) -> float | None:
+    p = safe_float(price); lo = safe_float(low); hi = safe_float(high)
+    if p and lo and hi and hi > lo:
+        return round((p - lo) / (hi - lo), 3)
+    return None
+
+
 # ── VALUATION ─────────────────────────────────────────────────────────────
 
 @router.get("/api/valuation/{ticker}", response_model=ValuationResponse)
@@ -653,6 +869,21 @@ async def get_valuation(ticker: str):
         margin_of_safety_pct=mos,
         verdict=verdict,
         verdict_reason=reason,
+        # ── Order-book proxy fields from info ────────────────────────────
+        bid_ask_spread_pct=_bid_ask_spread(info),
+        volume_vs_avg=_volume_vs_avg(info),
+        day_range_position=_range_position(
+            info.get("regularMarketPrice") or info.get("currentPrice"),
+            info.get("regularMarketDayLow"),
+            info.get("regularMarketDayHigh"),
+        ),
+        week52_range_position=_range_position(
+            info.get("regularMarketPrice") or info.get("currentPrice"),
+            info.get("fiftyTwoWeekLow"),
+            info.get("fiftyTwoWeekHigh"),
+        ),
+        short_ratio=safe_float(info.get("shortRatio")),
+        shares_short_pct=safe_float(info.get("shortPercentOfFloat")),
     )
     cache.set(f"valuation:{ticker}", result, ttl=86400)
     return result
@@ -1490,3 +1721,258 @@ def _sma_btst(closes: list[float], window: int) -> float | None:
     if len(closes) < window:
         return None
     return round(sum(closes[-window:]) / window, 2)
+
+
+# ── CHART DATA (multi-timeframe, all indicators) ──────────────────────────
+#
+# GET /api/chart/{ticker}?interval=1d|1wk|1mo
+# Returns OHLCV + full indicator suite for the given timeframe.
+# Used by the advanced ChartPanel component.
+
+def _compute_rsi_series(closes: list[float], period: int = 14) -> list[float | None]:
+    out: list[float | None] = [None] * period
+    for i in range(period, len(closes)):
+        chunk  = closes[i - period:i + 1]
+        deltas = [chunk[j] - chunk[j-1] for j in range(1, len(chunk))]
+        g  = sum(d for d in deltas if d > 0) / period
+        l_ = sum(-d for d in deltas if d < 0) / period
+        out.append(round(100 - 100 / (1 + g / l_), 2) if l_ != 0 else 100.0)
+    return out
+
+
+def _compute_ema_series(closes: list[float], span: int) -> list[float | None]:
+    if len(closes) < span:
+        return [None] * len(closes)
+    k   = 2 / (span + 1)
+    out: list[float | None] = [None] * (span - 1)
+    val = sum(closes[:span]) / span
+    out.append(round(val, 2))
+    for c in closes[span:]:
+        val = c * k + val * (1 - k)
+        out.append(round(val, 2))
+    return out
+
+
+def _compute_vwap(highs: list[float], lows: list[float],
+                  closes: list[float], volumes: list[float]) -> list[float | None]:
+    """Rolling cumulative VWAP (resets each session — approximated here as cumulative over all bars)."""
+    cum_tp_vol = 0.0
+    cum_vol    = 0.0
+    out: list[float | None] = []
+    for h, l, c, v in zip(highs, lows, closes, volumes):
+        tp       = (h + l + c) / 3
+        cum_tp_vol += tp * v
+        cum_vol    += v
+        out.append(round(cum_tp_vol / cum_vol, 2) if cum_vol > 0 else None)
+    return out
+
+
+def _detect_morning_star(opens: list[float], highs: list[float],
+                         lows: list[float], closes: list[float]) -> list[bool]:
+    """Morning Star: 3-candle reversal pattern."""
+    out = [False] * len(closes)
+    for i in range(2, len(closes)):
+        c1o, c1c = opens[i-2], closes[i-2]
+        c2o, c2c = opens[i-1], closes[i-1]
+        c3o, c3c = opens[i],   closes[i]
+        # Candle 1: large bearish
+        if c1c >= c1o:
+            continue
+        body1 = c1o - c1c
+        if body1 < (highs[i-2] - lows[i-2]) * 0.4:
+            continue
+        # Candle 2: small body (doji/star) — gapping down
+        body2 = abs(c2c - c2o)
+        if body2 > body1 * 0.4:
+            continue
+        if max(c2o, c2c) >= c1c:
+            continue
+        # Candle 3: large bullish closing above midpoint of candle 1
+        if c3c <= c3o:
+            continue
+        body3 = c3c - c3o
+        if body3 < body1 * 0.4:
+            continue
+        if c3c < (c1o + c1c) / 2:
+            continue
+        out[i] = True
+    return out
+
+
+def _compute_supertrend_series(
+    highs: list[float], lows: list[float], closes: list[float],
+    period: int = 10, mult: float = 3.0
+) -> tuple[list[float | None], list[bool]]:
+    """Returns (supertrend_values, is_bullish) per bar."""
+    n  = len(closes)
+    st = [None] * n
+    bull = [True] * n
+
+    def _atr_v(i: int) -> float:
+        if i == 0:
+            return highs[0] - lows[0]
+        trs = []
+        for j in range(max(0, i - period + 1), i + 1):
+            tr = max(
+                highs[j] - lows[j],
+                abs(highs[j] - closes[j-1]) if j > 0 else 0,
+                abs(lows[j]  - closes[j-1]) if j > 0 else 0,
+            )
+            trs.append(tr)
+        return sum(trs) / len(trs) if trs else 0.0
+
+    for i in range(period, n):
+        atr_v = _atr_v(i)
+        hl2   = (highs[i] + lows[i]) / 2
+        ub    = hl2 + mult * atr_v
+        lb    = hl2 - mult * atr_v
+
+        prev  = st[i-1]
+        prev_bull = bull[i-1]
+
+        if prev is None:
+            st[i]   = round(lb, 2)
+            bull[i] = True
+            continue
+
+        if prev_bull:
+            final_lb = max(lb, prev)
+            final_ub = ub
+        else:
+            final_lb = lb
+            final_ub = min(ub, prev)
+
+        if closes[i] > final_ub:
+            bull[i] = True;  st[i] = round(final_lb, 2)
+        elif closes[i] < final_lb:
+            bull[i] = False; st[i] = round(final_ub, 2)
+        else:
+            bull[i] = prev_bull
+            st[i]   = round(final_lb if prev_bull else final_ub, 2)
+
+    return st, bull
+
+
+def _compute_bb_series(closes: list[float], period: int = 20, mult: float = 2.0):
+    upper: list[float | None] = []
+    mid:   list[float | None] = []
+    lower: list[float | None] = []
+    for i in range(len(closes)):
+        if i < period - 1:
+            upper.append(None); mid.append(None); lower.append(None)
+        else:
+            w  = closes[i - period + 1:i + 1]
+            m  = sum(w) / period
+            sd = (sum((x - m)**2 for x in w) / period) ** 0.5
+            upper.append(round(m + mult * sd, 2))
+            mid.append(round(m, 2))
+            lower.append(round(m - mult * sd, 2))
+    return upper, mid, lower
+
+
+def _compute_macd_series(closes: list[float]):
+    def ema(data, span):
+        k, v = 2/(span+1), [data[0]]
+        for x in data[1:]: v.append(x * k + v[-1] * (1-k))
+        return v
+    if len(closes) < 26:
+        n = len(closes)
+        return [None]*n, [None]*n, [None]*n
+    e12  = ema(closes, 12)
+    e26  = ema(closes, 26)
+    macd = [round(a-b, 4) for a, b in zip(e12, e26)]
+    sig  = ema(macd[25:], 9)
+    sig_padded = [None]*25 + [round(v, 4) for v in sig]
+    hist = [round(macd[i] - (sig_padded[i] or 0), 4)
+            if sig_padded[i] is not None else None for i in range(len(macd))]
+    return macd, sig_padded, hist
+
+
+@router.get("/api/chart/{ticker}")
+async def get_chart_data(
+    ticker: str,
+    interval: str = Query("1d", regex="^(1d|1wk|1mo)$"),
+):
+    ticker = validate_ticker(ticker)
+    cache_key = f"chart:{ticker}:{interval}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    # Choose fetch period based on interval
+    period_map = {"1d": "2y", "1wk": "5y", "1mo": "10y"}
+    period = period_map[interval]
+
+    hist = await yfc.fetch_history(ticker, period=period, interval=interval)
+    if hist is None or hist.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {ticker}")
+
+    opens   = hist["Open"].tolist()
+    highs   = hist["High"].tolist()
+    lows    = hist["Low"].tolist()
+    closes  = hist["Close"].tolist()
+    volumes = hist["Volume"].tolist()
+    dates   = [str(idx.date()) for idx in hist.index]
+
+    # ── Indicators ────────────────────────────────────────────────────────
+    ema9   = _compute_ema_series(closes, 9)
+    ema20  = _compute_ema_series(closes, 20)
+    sma20  = [round(sum(closes[max(0,i-19):i+1]) / min(i+1,20), 2) if i >= 19 else None for i in range(len(closes))]
+    sma50  = [round(sum(closes[max(0,i-49):i+1]) / min(i+1,50), 2) if i >= 49 else None for i in range(len(closes))]
+    sma200 = [round(sum(closes[max(0,i-199):i+1]) / min(i+1,200), 2) if i >= 199 else None for i in range(len(closes))]
+
+    rsi_d  = _compute_rsi_series(closes, 14)
+    bb_u, bb_m, bb_l = _compute_bb_series(closes, 20, 2.0)
+    vwap   = _compute_vwap(highs, lows, closes, volumes)
+    macd_l, macd_s, macd_h = _compute_macd_series(closes)
+    st_vals, st_bull = _compute_supertrend_series(highs, lows, closes)
+    morning_star = _detect_morning_star(opens, highs, lows, closes)
+
+    # Support / Resistance levels from price history
+    supports, resistances = compute_support_resistance(closes)
+
+    bars = []
+    for i in range(len(dates)):
+        bars.append({
+            "date":          dates[i],
+            "open":          round(opens[i],  2),
+            "high":          round(highs[i],  2),
+            "low":           round(lows[i],   2),
+            "close":         round(closes[i], 2),
+            "volume":        int(volumes[i]),
+            # Overlays
+            "ema9":          ema9[i],
+            "ema20":         ema20[i],
+            "sma20":         sma20[i],
+            "sma50":         sma50[i],
+            "sma200":        sma200[i],
+            "bb_upper":      bb_u[i],
+            "bb_mid":        bb_m[i],
+            "bb_lower":      bb_l[i],
+            "vwap":          vwap[i],
+            "supertrend":    st_vals[i],
+            "st_bull":       st_bull[i],
+            # Sub-panel
+            "rsi":           rsi_d[i],
+            "macd":          macd_l[i],
+            "macd_signal":   macd_s[i],
+            "macd_hist":     macd_h[i],
+            # Patterns
+            "morning_star":  morning_star[i],
+        })
+
+    # Snapshot RSI values across timeframes (returned as meta)
+    rsi_daily   = next((v for v in reversed(rsi_d) if v is not None), None)
+
+    ttl = 3600 if interval == "1d" else 14400
+    result = {
+        "ticker":     ticker,
+        "interval":   interval,
+        "bars":       bars,
+        "supports":   [{"price": l.price, "strength": l.strength} for l in supports],
+        "resistances":[{"price": l.price, "strength": l.strength} for l in resistances],
+        "rsi":        rsi_daily,
+        "supertrend_signal": "bullish" if (st_bull[-1] if st_bull else True) else "bearish",
+    }
+    cache.set(cache_key, result, ttl=ttl)
+    return result

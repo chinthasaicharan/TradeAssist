@@ -61,16 +61,33 @@ class PriceLevel(BaseModel):
 class TechnicalResponse(BaseModel):
     ticker: str
     current_price: float
-    price_history: list[dict]   # includes ma20, ma50, ma200
+    price_history: list[dict]   # includes ma20, ma50, ma200 + bb_upper/lower + supertrend
     support_levels: list[PriceLevel]
     resistance_levels: list[PriceLevel]
-    # MA snapshot
     ma20: float | None
     ma50: float | None
     ma200: float | None
-    ma_trend: Literal["bullish", "bearish", "neutral"]   # price vs all MAs
+    ma_trend: Literal["bullish", "bearish", "neutral"]
     rsi: float
     rsi_signal: str
+    # ── New indicators ──
+    macd: float | None
+    macd_signal: float | None
+    macd_hist: float | None
+    bb_upper: float | None
+    bb_middle: float | None
+    bb_lower: float | None
+    bb_width: float | None          # (upper-lower)/middle * 100
+    supertrend: float | None
+    supertrend_signal: Literal["bullish", "bearish"] | None
+    atr: float | None
+    # Fibonacci levels (from 52W high/low swing)
+    fib_levels: dict               # {"0": price, "0.236": price, ...}
+    # Z-score of price vs 20d mean
+    zscore: float | None
+    # Composite confidence score 0-100
+    confidence_score: float
+    confidence_label: str
 
 
 class TrendSignal(BaseModel):
@@ -127,21 +144,25 @@ class InsightsResponse(BaseModel):
 class ValuationResponse(BaseModel):
     ticker: str
     sector: str | None
-    # Stock metrics
     pe_ratio: float | None
     pb_ratio: float | None
     eps: float | None
     forward_pe: float | None
     peg_ratio: float | None
     ev_to_ebitda: float | None
-    # Sector benchmarks
     sector_pe: float | None
     sector_pb: float | None
-    # Fair value estimates
-    dcf_fair_value: float | None          # Graham / DCF approximation
-    margin_of_safety_pct: float | None    # (fair_value - price) / fair_value * 100
+    dcf_fair_value: float | None
+    margin_of_safety_pct: float | None
     verdict: Literal["Undervalued", "Fairly Valued", "Overvalued", "Insufficient Data"]
     verdict_reason: str
+    # ── Order-book proxy ──
+    bid_ask_spread_pct: float | None   # (ask-bid)/mid * 100 — proxy liquidity
+    volume_vs_avg: float | None        # current vol / 3m avg vol
+    day_range_position: float | None   # 0=at low, 1=at high (order pressure proxy)
+    week52_range_position: float | None
+    short_ratio: float | None          # days-to-cover (short interest)
+    shares_short_pct: float | None     # % of float shorted
 
 
 class CashFlowPeriod(BaseModel):

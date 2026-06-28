@@ -56,7 +56,14 @@ export interface PriceLevel {
 export interface TechnicalResponse {
   ticker: string
   current_price: number
-  price_history: { date: string; close: number; volume: number; ma20: number | null; ma50: number | null; ma200: number | null }[]
+  price_history: {
+    date: string; open: number; high: number; low: number; close: number; volume: number
+    ma20: number | null; ma50: number | null; ma200: number | null
+    bb_upper: number | null; bb_lower: number | null; bb_mid: number | null
+    supertrend: number | null; st_bull: boolean
+    macd: number; macd_signal: number | null; macd_hist: number | null
+    rsi: number | null; atr: number | null
+  }[]
   support_levels: PriceLevel[]
   resistance_levels: PriceLevel[]
   ma20: number | null
@@ -65,6 +72,20 @@ export interface TechnicalResponse {
   ma_trend: 'bullish' | 'bearish' | 'neutral'
   rsi: number
   rsi_signal: string
+  macd: number | null
+  macd_signal: number | null
+  macd_hist: number | null
+  bb_upper: number | null
+  bb_middle: number | null
+  bb_lower: number | null
+  bb_width: number | null
+  supertrend: number | null
+  supertrend_signal: 'bullish' | 'bearish' | null
+  atr: number | null
+  fib_levels: Record<string, number>
+  zscore: number | null
+  confidence_score: number
+  confidence_label: string
 }
 
 export interface TrendSignal {
@@ -126,6 +147,12 @@ export interface ValuationResponse {
   margin_of_safety_pct: number | null
   verdict: 'Undervalued' | 'Fairly Valued' | 'Overvalued' | 'Insufficient Data'
   verdict_reason: string
+  bid_ask_spread_pct: number | null
+  volume_vs_avg: number | null
+  day_range_position: number | null
+  week52_range_position: number | null
+  short_ratio: number | null
+  shares_short_pct: number | null
 }
 
 export interface CashFlowPeriod {
