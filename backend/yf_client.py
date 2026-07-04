@@ -3,8 +3,8 @@ yf_client.py — rate-limit-safe yfinance wrapper for TradeAssist
 
 Strategy:
   1. curl_cffi Chrome session  → passes Yahoo TLS fingerprint check
-  2. asyncio.Semaphore(1)      → serialise all Yahoo calls (one at a time)
-  3. Adaptive throttle         → 2s between calls, backs off on 429
+  2. asyncio.Semaphore(3)      → allow 3 concurrent Yahoo calls
+  3. Adaptive throttle         → 1s between calls, backs off on 429
   4. Symbol fallback           → .NS → .BO → bare → fail
   5. In-memory result cache    → avoids repeat fetches for hot symbols
   6. Jitter on retry           → prevents thundering-herd on server restart
@@ -31,25 +31,32 @@ except Exception as e:
     log.warning(f"[yfc] curl_cffi unavailable ({e}), using default requests")
 
 # ── Rate-limit config ──────────────────────────────────────────────────────
-MAX_RETRIES  = 4
-BASE_DELAY   = 6.0     # first retry delay (seconds)
-INTER_DELAY  = 2.0     # minimum gap between any two Yahoo calls
+MAX_RETRIES  = 3
+BASE_DELAY   = 4.0     # first retry delay (seconds)
+INTER_DELAY  = 1.0     # minimum gap between any two Yahoo calls
 
 _last_call_time: float = 0.0
 _backoff_until:  float = 0.0  # global cooldown after a 429
+_throttle_lock = None         # threading.Lock, created lazily
+
+
+def _get_lock():
+    global _throttle_lock
+    if _throttle_lock is None:
+        import threading
+        _throttle_lock = threading.Lock()
+    return _throttle_lock
 
 
 def _throttle():
     global _last_call_time, _backoff_until
-    now = time.monotonic()
-    # Respect global backoff from a 429
-    if now < _backoff_until:
-        time.sleep(_backoff_until - now + random.uniform(0.1, 0.5))
-    # Enforce inter-call delay
-    gap = time.monotonic() - _last_call_time
-    if gap < INTER_DELAY:
-        time.sleep(INTER_DELAY - gap + random.uniform(0, 0.3))
-    _last_call_time = time.monotonic()
+    with _get_lock():
+        now = time.monotonic()
+        # Respect global backoff from a 429
+        wait = max(_backoff_until - now, INTER_DELAY - (now - _last_call_time))
+        if wait > 0:
+            time.sleep(wait + random.uniform(0, 0.2))
+        _last_call_time = time.monotonic()
 
 
 def _is_429(exc: Exception) -> bool:
@@ -60,6 +67,19 @@ def _is_429(exc: Exception) -> bool:
 def _is_not_found(exc: Exception) -> bool:
     s = str(exc).lower()
     return "404" in s or "not found" in s or "no data found" in s or "delisted" in s
+
+
+# ── Ticker alias map — renamed/rebranded stocks ───────────────────────────
+# When Yahoo Finance drops an old symbol, map it to the current one here.
+TICKER_ALIASES: dict[str, str] = {
+    "ZOMATO.NS": "ETERNAL.NS",
+    "ZOMATO.BO": "ETERNAL.BO",
+    "ZOMATO":    "ETERNAL",
+}
+
+def resolve_ticker(symbol: str) -> str:
+    """Return canonical ticker, resolving any known aliases."""
+    return TICKER_ALIASES.get(symbol.upper().strip(), symbol.upper().strip())
 
 
 # ── Symbol fallback chain ──────────────────────────────────────────────────
@@ -218,19 +238,20 @@ def _fetch_holdings_sync(symbol: str) -> dict:
     return {"major": None, "inst": None, "mf": None}
 
 
-# ── Semaphore — ONE Yahoo call at a time ──────────────────────────────────
+# ── Semaphore — limit to 3 concurrent Yahoo calls ────────────────────────
 _sem: asyncio.Semaphore | None = None
 
 def _get_sem() -> asyncio.Semaphore:
     global _sem
     if _sem is None:
-        _sem = asyncio.Semaphore(1)
+        _sem = asyncio.Semaphore(3)
     return _sem
 
 
 # ── Async wrappers ─────────────────────────────────────────────────────────
 
 async def fetch_info(symbol: str) -> dict:
+    symbol = resolve_ticker(symbol)
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, _fetch_info_sync, symbol
@@ -238,6 +259,7 @@ async def fetch_info(symbol: str) -> dict:
 
 
 async def fetch_history(symbol: str, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
+    symbol = resolve_ticker(symbol)
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, lambda: _fetch_history_sync(symbol, period, interval)
@@ -245,6 +267,7 @@ async def fetch_history(symbol: str, period: str = "1y", interval: str = "1d") -
 
 
 async def fetch_financials(symbol: str) -> tuple[Any, Any]:
+    symbol = resolve_ticker(symbol)
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, _fetch_financials_sync, symbol
@@ -252,6 +275,7 @@ async def fetch_financials(symbol: str) -> tuple[Any, Any]:
 
 
 async def fetch_news(symbol: str) -> list:
+    symbol = resolve_ticker(symbol)
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, _fetch_news_sync, symbol
@@ -259,6 +283,7 @@ async def fetch_news(symbol: str) -> list:
 
 
 async def fetch_holdings(symbol: str) -> dict:
+    symbol = resolve_ticker(symbol)
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, _fetch_holdings_sync, symbol

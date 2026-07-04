@@ -68,7 +68,8 @@ SECTOR_PEERS: dict[str, list[str]] = {
 
 
 def validate_ticker(ticker: str) -> str:
-    t = ticker.upper().strip()
+    from yf_client import resolve_ticker
+    t = resolve_ticker(ticker.upper().strip())
     if not TICKER_RE.match(t):
         raise HTTPException(status_code=422, detail="Invalid ticker format")
     return t
@@ -1753,6 +1754,57 @@ def _compute_ema_series(closes: list[float], span: int) -> list[float | None]:
     return out
 
 
+def _compute_session_vwap(hist, highs: list, lows: list, closes: list, volumes: list) -> list:
+    """
+    Session-reset VWAP. Resets at the first bar of each trading day.
+    """
+    result = []
+    cum_tp_vol = 0.0
+    cum_vol    = 0.0
+    prev_date  = None
+
+    for i, idx in enumerate(hist.index):
+        try:
+            cur_date = idx.date()
+        except Exception:
+            cur_date = None
+
+        if cur_date is not None and cur_date != prev_date:
+            cum_tp_vol = 0.0
+            cum_vol    = 0.0
+            prev_date  = cur_date
+
+        v  = volumes[i] or 0
+        tp = (highs[i] + lows[i] + closes[i]) / 3
+        cum_tp_vol += tp * v
+        cum_vol    += v
+        result.append(round(cum_tp_vol / cum_vol, 2) if cum_vol > 0 else None)
+
+    return result
+
+
+def _compute_orb(hist, highs: list, lows: list, intraday: bool, interval: str) -> list:
+    """
+    Opening Range: first bar of each session = ORB high/low.
+    Same value propagated across all bars of that session so it renders
+    as a flat band on the chart.
+    """
+    session_orb: dict = {}
+    bar_dates   = []
+
+    for i, idx in enumerate(hist.index):
+        try:
+            d = idx.date()
+        except Exception:
+            bar_dates.append(None)
+            continue
+        bar_dates.append(d)
+        if d not in session_orb:
+            session_orb[d] = {"high": round(highs[i], 2), "low": round(lows[i], 2)}
+
+    return [session_orb.get(d) for d in bar_dates]
+
+
 def _compute_vwap(highs: list[float], lows: list[float],
                   closes: list[float], volumes: list[float]) -> list[float | None]:
     """Rolling cumulative VWAP (resets each session — approximated here as cumulative over all bars)."""
@@ -1891,7 +1943,7 @@ def _compute_macd_series(closes: list[float]):
 @router.get("/api/chart/{ticker}")
 async def get_chart_data(
     ticker: str,
-    interval: str = Query("1d", regex="^(1d|1wk|1mo)$"),
+    interval: str = Query("1d", regex="^(1d|1wk|1mo|5m|15m|30m)$"),
 ):
     ticker = validate_ticker(ticker)
     cache_key = f"chart:{ticker}:{interval}"
@@ -1900,7 +1952,15 @@ async def get_chart_data(
         return cached
 
     # Choose fetch period based on interval
-    period_map = {"1d": "2y", "1wk": "5y", "1mo": "10y"}
+    intraday = interval in ("5m", "15m", "30m")
+    period_map = {
+        "5m":  "5d",   # yfinance max for 5m
+        "15m": "60d",  # yfinance max for 15m
+        "30m": "60d",
+        "1d":  "2y",
+        "1wk": "5y",
+        "1mo": "10y",
+    }
     period = period_map[interval]
 
     hist = await yfc.fetch_history(ticker, period=period, interval=interval)
@@ -1912,7 +1972,18 @@ async def get_chart_data(
     lows    = hist["Low"].tolist()
     closes  = hist["Close"].tolist()
     volumes = hist["Volume"].tolist()
-    dates   = [str(idx.date()) for idx in hist.index]
+
+    # For intraday use Unix timestamp (seconds); lightweight-charts requires
+    # UTCTimestamp (number) for sub-daily data — ISO strings are not accepted.
+    # For daily+ use yyyy-mm-dd strings.
+    if intraday:
+        dates = [
+            int(idx.timestamp()) if hasattr(idx, "timestamp")
+            else int(idx.value // 1_000_000_000)
+            for idx in hist.index
+        ]
+    else:
+        dates = [str(idx.date()) for idx in hist.index]
 
     # ── Indicators ────────────────────────────────────────────────────────
     ema9   = _compute_ema_series(closes, 9)
@@ -1923,17 +1994,26 @@ async def get_chart_data(
 
     rsi_d  = _compute_rsi_series(closes, 14)
     bb_u, bb_m, bb_l = _compute_bb_series(closes, 20, 2.0)
-    vwap   = _compute_vwap(highs, lows, closes, volumes)
     macd_l, macd_s, macd_h = _compute_macd_series(closes)
     st_vals, st_bull = _compute_supertrend_series(highs, lows, closes)
     morning_star = _detect_morning_star(opens, highs, lows, closes)
+
+    # ── Session-reset VWAP (resets at start of each trading day) ──────────
+    if intraday:
+        vwap = _compute_session_vwap(hist, highs, lows, closes, volumes)
+    else:
+        vwap = _compute_vwap(highs, lows, closes, volumes)
+
+    # ── Opening Range Breakout (ORB) — first 15 min of each session ───────
+    # Returns list of {high, low} per bar — None outside the first session bar
+    orb_data = _compute_orb(hist, highs, lows, intraday, interval) if intraday else [None] * len(closes)
 
     # Support / Resistance levels from price history
     supports, resistances = compute_support_resistance(closes)
 
     bars = []
     for i in range(len(dates)):
-        bars.append({
+        bar = {
             "date":          dates[i],
             "open":          round(opens[i],  2),
             "high":          round(highs[i],  2),
@@ -1959,19 +2039,28 @@ async def get_chart_data(
             "macd_hist":     macd_h[i],
             # Patterns
             "morning_star":  morning_star[i],
-        })
+        }
+        # ORB fields (intraday only)
+        if orb_data[i] is not None:
+            bar["orb_high"] = orb_data[i]["high"]
+            bar["orb_low"]  = orb_data[i]["low"]
+        else:
+            bar["orb_high"] = None
+            bar["orb_low"]  = None
+        bars.append(bar)
 
-    # Snapshot RSI values across timeframes (returned as meta)
-    rsi_daily   = next((v for v in reversed(rsi_d) if v is not None), None)
+    rsi_daily = next((v for v in reversed(rsi_d) if v is not None), None)
 
-    ttl = 3600 if interval == "1d" else 14400
+    # Shorter TTL for intraday
+    ttl = 300 if intraday else (3600 if interval == "1d" else 14400)
     result = {
-        "ticker":     ticker,
-        "interval":   interval,
-        "bars":       bars,
-        "supports":   [{"price": l.price, "strength": l.strength} for l in supports],
-        "resistances":[{"price": l.price, "strength": l.strength} for l in resistances],
-        "rsi":        rsi_daily,
+        "ticker":            ticker,
+        "interval":          interval,
+        "intraday":          intraday,
+        "bars":              bars,
+        "supports":          [{"price": l.price, "strength": l.strength} for l in supports],
+        "resistances":       [{"price": l.price, "strength": l.strength} for l in resistances],
+        "rsi":               rsi_daily,
         "supertrend_signal": "bullish" if (st_bull[-1] if st_bull else True) else "bearish",
     }
     cache.set(cache_key, result, ttl=ttl)

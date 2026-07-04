@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -7,8 +8,9 @@ import { getBTST } from '../api'
 import { fmt, SYM } from '../utils'
 import { PanelSkeleton } from './Skeleton'
 import type { BTSTSignal } from '../types'
+import { pinTrade, unpinTrade, isAlreadyPinned } from '../tradeTracker'
 
-interface Props { ticker: string }
+interface Props { ticker: string; companyName?: string }
 
 const VERDICT_CFG = {
   'Strong BTST': {
@@ -85,12 +87,61 @@ const CandleTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-export function BTSTPanel({ ticker }: Props) {
+export function BTSTPanel({ ticker, companyName }: Props) {
+  const queryClient = useQueryClient()
+  const [pinned, setPinned]   = useState(false)
+  const [pinId, setPinId]     = useState<string | null>(null)
+
+  // Check pinned state from DB on mount / ticker change
+  useEffect(() => {
+    isAlreadyPinned(ticker, 'BTST').then(({ pinned: p, id }) => {
+      setPinned(p); setPinId(id)
+    }).catch(() => {})
+  }, [ticker])
+
+  // Re-sync when another panel fires the event
+  useEffect(() => {
+    const sync = () => {
+      isAlreadyPinned(ticker, 'BTST').then(({ pinned: p, id }) => {
+        setPinned(p); setPinId(id)
+      }).catch(() => {})
+    }
+    window.addEventListener('ta_trades_updated', sync)
+    return () => window.removeEventListener('ta_trades_updated', sync)
+  }, [ticker])
+
+  const pinMutation = useMutation({
+    mutationFn: async () => {
+      if (pinned && pinId) {
+        await unpinTrade(pinId)
+        return null
+      } else {
+        return pinTrade({
+          ticker,
+          companyName: companyName ?? ticker,
+          type: 'BTST',
+          verdict:     data!.verdict,
+          entryPrice:  data!.entry_price,
+          targetPrice: data!.target_price,
+          stopLoss:    data!.stop_loss,
+          riskReward:  data!.risk_reward,
+          confidence:  data!.confidence_pct,
+        })
+      }
+    },
+    onSuccess: result => {
+      if (result) { setPinned(true);  setPinId(result.id) }
+      else        { setPinned(false); setPinId(null) }
+      queryClient.invalidateQueries({ queryKey: ['pinned-trades'] })
+      window.dispatchEvent(new Event('ta_trades_updated'))
+    },
+  })
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['btst', ticker],
-    queryFn: () => getBTST(ticker),
-    enabled: !!ticker,
-    staleTime: 30 * 60 * 1000, // 30-min — intraday relevance
+    queryFn:  () => getBTST(ticker),
+    enabled:  !!ticker,
+    staleTime: 30 * 60 * 1000,
   })
 
   if (isLoading) return <PanelSkeleton />
@@ -124,9 +175,24 @@ export function BTSTPanel({ ticker }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="panel-title">BTST · Buy Today Sell Tomorrow</p>
-        <span className={`text-xs px-2 py-1 rounded-full font-semibold ${cfg.badge}`}>
-          Updated {new Date(data.generated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-1 rounded-full font-semibold ${cfg.badge}`}>
+            Updated {new Date(data.generated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <button
+            onClick={() => pinMutation.mutate()}
+            disabled={pinMutation.isPending}
+            title={pinned ? 'Stop monitoring this trade' : 'Monitor this trade — track target/SL outcome'}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold transition-all border ${
+              pinned
+                ? 'bg-amber-900 border-amber-600 text-amber-300 hover:bg-amber-800'
+                : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-amber-300'
+            } ${pinMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
+          >
+            <span>{pinned ? '📌' : '📊'}</span>
+            <span>{pinned ? 'Monitoring' : 'Monitor Trade'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main verdict card */}

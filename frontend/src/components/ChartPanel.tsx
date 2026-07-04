@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Component, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, Component, type ReactNode, type ErrorInfo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createChart, CandlestickSeries, LineSeries, HistogramSeries,
@@ -9,7 +9,7 @@ import { fmt, SYM } from '../utils'
 import { PanelSkeleton } from './Skeleton'
 
 interface Props { ticker: string }
-type Interval = '1d' | '1wk' | '1mo'
+type Interval = '5m' | '15m' | '30m' | '1d' | '1wk' | '1mo'
 
 const COLORS = {
   bg: '#111827', grid: '#1f2937', text: '#6b7280',
@@ -17,17 +17,19 @@ const COLORS = {
 }
 
 const INTERVAL_LABELS: Record<Interval, string> = {
+  '5m': '5 Min', '15m': '15 Min', '30m': '30 Min',
   '1d': 'Daily', '1wk': 'Weekly', '1mo': 'Monthly',
 }
 
-// ── All indicators config ─────────────────────────────────────────────────
+// ── Indicator config ──────────────────────────────────────────────────────
 const OVERLAYS = [
   { key:'ema9',       label:'EMA 9',   color:'#fb923c', field:'ema9' },
   { key:'ema20',      label:'EMA 20',  color:'#fbbf24', field:'ema20' },
-  { key:'sma20',      label:'SMA 20',  color:'#f59e0b', field:'sma20',  dash:true },
+  { key:'vwap',       label:'VWAP',    color:'#22d3ee', field:'vwap', width:2 },
+  { key:'orb',        label:'ORB',     color:'#a78bfa', field:'orb_high' },
+  { key:'sma20',      label:'SMA 20',  color:'#f59e0b', field:'sma20', dash:true },
   { key:'sma50',      label:'SMA 50',  color:'#6366f1', field:'sma50' },
   { key:'sma200',     label:'SMA 200', color:'#a855f7', field:'sma200' },
-  { key:'vwap',       label:'VWAP',    color:'#22d3ee', field:'vwap',   width:2 },
   { key:'bb',         label:'BB',      color:'#0ea5e9', field:'bb_upper' },
   { key:'supertrend', label:'ST',      color:'#f97316', field:'supertrend' },
   { key:'volume',     label:'Volume',  color:'#374151', field:'volume' },
@@ -35,11 +37,19 @@ const OVERLAYS = [
 
 // ── Error boundary ────────────────────────────────────────────────────────
 class ChartErrorBoundary extends Component<
-  { children: ReactNode; fallback?: ReactNode },
-  { error: boolean }
+  { children: ReactNode; fallback?: ReactNode; ticker: string },
+  { error: boolean; message: string }
 > {
-  state = { error: false }
-  static getDerivedStateFromError() { return { error: true } }
+  state = { error: false, message: '' }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[ChartPanel] Error caught by boundary:', error, info.componentStack)
+  }
+  static getDerivedStateFromError(error: Error) { return { error: true, message: error?.message ?? String(error) } }
+  componentDidUpdate(prevProps: { ticker: string }) {
+    if (prevProps.ticker !== this.props.ticker && this.state.error) {
+      this.setState({ error: false })
+    }
+  }
   render() {
     if (this.state.error) return this.props.fallback ?? (
       <div className="panel">
@@ -68,10 +78,8 @@ function Chip({ label, active, color, onClick }: {
 
 // ── Inner chart (no error boundary here) ─────────────────────────────────
 function ChartInner({ ticker }: Props) {
-  const [interval, setIntervalVal] = useState<Interval>('1d')
-  const [active, setActive] = useState<Set<string>>(
-    new Set(['ema9', 'sma50', 'bb', 'supertrend', 'volume'])
-  )
+  const [interval, setIntervalVal] = useState<Interval>('15m')
+  const [active, setActive] = useState<Set<string>>(new Set())
   const [subPanel, setSubPanel] = useState<'rsi'|'macd'|'volume'|null>('rsi')
   const [showSR, setShowSR] = useState(false)
 
@@ -82,9 +90,9 @@ function ChartInner({ ticker }: Props) {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['chart', ticker, interval],
-    queryFn:  () => getChartData(ticker, interval),
+    queryFn:  () => getChartData(ticker, interval as any),
     enabled:  !!ticker,
-    staleTime: 300_000,
+    staleTime: interval === '5m' ? 60_000 : interval === '15m' || interval === '30m' ? 180_000 : 300_000,
     retry: 1,
   })
 
@@ -100,7 +108,7 @@ function ChartInner({ ticker }: Props) {
     subChart.current   = null
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!priceRef.current || !data?.bars?.length) return
 
     destroyCharts()
@@ -181,6 +189,28 @@ function ChartInner({ ticker }: Props) {
       addLine('bb_mid',  '#0ea5e9', true)
       addLine('bb_lower','#0ea5e9', true)
     }
+
+    // ── ORB band (intraday only) ──────────────────────────────────────
+    if (active.has('orb') && data.intraday) {
+      try {
+        const orbHigh = pc.addSeries(LineSeries, {
+          color: '#a78bfa', lineWidth: 2, lineStyle: 0,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+          title: 'ORB H',
+        })
+        const orbLow = pc.addSeries(LineSeries, {
+          color: '#a78bfa', lineWidth: 2, lineStyle: 2,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+          title: 'ORB L',
+        })
+        const orbHPts = bars.filter((d: any) => d.orb_high != null)
+          .map((d: any) => ({ time: d.date as Time, value: d.orb_high as number }))
+        const orbLPts = bars.filter((d: any) => d.orb_low != null)
+          .map((d: any) => ({ time: d.date as Time, value: d.orb_low as number }))
+        if (orbHPts.length) orbHigh.setData(orbHPts)
+        if (orbLPts.length) orbLow.setData(orbLPts)
+      } catch {}
+    }
     if (active.has('supertrend')) {
       try {
         const bull = pc.addSeries(LineSeries, { color: COLORS.bull, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
@@ -243,6 +273,7 @@ function ChartInner({ ticker }: Props) {
 
     return () => {
       ro.disconnect()
+      destroyCharts()
     }
   }, [data, active, subPanel, showSR])
 
@@ -270,7 +301,17 @@ function ChartInner({ ticker }: Props) {
           <span className="text-xs font-mono font-bold text-brand-400">{ticker}</span>
           {lastBar && <span className="text-base font-bold text-white">{SYM}{fmt(lastBar.close)}</span>}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
+          {/* Intraday */}
+          <div className="flex gap-1 border-r border-gray-700 pr-2 mr-1">
+            {(['5m','15m','30m'] as Interval[]).map(i => (
+              <button key={i} onClick={() => setIntervalVal(i)}
+                className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                  interval === i ? 'bg-purple-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}>{INTERVAL_LABELS[i]}</button>
+            ))}
+          </div>
+          {/* Daily+ */}
           {(['1d','1wk','1mo'] as Interval[]).map(i => (
             <button key={i} onClick={() => setIntervalVal(i)}
               className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
@@ -282,9 +323,17 @@ function ChartInner({ ticker }: Props) {
 
       {/* Indicator toggles */}
       <div className="flex flex-wrap gap-1.5">
-        {OVERLAYS.map(o => (
-          <Chip key={o.key} label={o.label} active={active.has(o.key)} color={o.color} onClick={() => toggle(o.key)} />
-        ))}
+        {OVERLAYS
+          .filter(o => {
+            // ORB only meaningful intraday; SMA200 only meaningful on daily+
+            if ((o.key === 'orb' || o.key === 'vwap') && !data.intraday) return false
+            if (o.key === 'sma200' && data.intraday) return false
+            return true
+          })
+          .map(o => (
+            <Chip key={o.key} label={o.label} active={active.has(o.key)} color={o.color} onClick={() => toggle(o.key)} />
+          ))
+        }
         <Chip label="S/R Lines" active={showSR} color="#10b981" onClick={() => setShowSR(v => !v)} />
       </div>
 
@@ -299,8 +348,8 @@ function ChartInner({ ticker }: Props) {
       </div>
 
       {/* Charts */}
-      <div ref={priceRef} className="w-full rounded-lg overflow-hidden" />
-      {subPanel && <div ref={subRef} className="w-full rounded-lg overflow-hidden" />}
+      <div ref={priceRef} className="w-full rounded-lg overflow-hidden" style={{ height: 380 }} />
+      {subPanel && <div ref={subRef} className="w-full rounded-lg overflow-hidden" style={{ height: 110 }} />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -310,7 +359,8 @@ function ChartInner({ ticker }: Props) {
             sub: rsiNow == null ? '' : rsiNow < 30 ? 'Oversold' : rsiNow > 70 ? 'Overbought' : 'Neutral' },
           { label:'Supertrend', val: stSig?.toUpperCase() ?? 'N/A',
             color: stSig === 'bullish' ? '#10b981' : '#ef4444', sub: INTERVAL_LABELS[interval] },
-          { label:'Interval',   val: INTERVAL_LABELS[interval], color:'#6366f1', sub:`${data.bars?.length ?? 0} bars` },
+          { label:'Interval',   val: INTERVAL_LABELS[interval], color:'#6366f1',
+            sub: data.intraday ? `${data.bars?.length ?? 0} bars · intraday` : `${data.bars?.length ?? 0} bars` },
           { label:'Period High',val: lastBar ? `${SYM}${fmt(lastBar.high)}` : 'N/A', color:'#10b981', sub:'' },
           { label:'Period Low', val: lastBar ? `${SYM}${fmt(lastBar.low)}`  : 'N/A', color:'#ef4444', sub:'' },
         ].map(({ label, val, color, sub }) => (
@@ -356,7 +406,7 @@ function ChartInner({ ticker }: Props) {
 // ── Public export wrapped in error boundary ───────────────────────────────
 export function ChartPanel(props: Props) {
   return (
-    <ChartErrorBoundary>
+    <ChartErrorBoundary ticker={props.ticker}>
       <ChartInner {...props} />
     </ChartErrorBoundary>
   )

@@ -535,52 +535,59 @@ NIFTY500_STATIC = _DEDUPED
 
 
 # ── NSE live fetch ─────────────────────────────────────────────────────────
-# NSE public API: returns all Nifty 500 constituents with symbol + company name
-NSE_INDEX_URL = "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20500"
+# NSE blocks API calls from cloud IPs. We try two endpoints; fall back to
+# the static list silently on any failure.
 NSE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.nseindia.com/",
 }
-# Cookie is required by NSE — we get it by visiting the homepage first
 NSE_HOME = "https://www.nseindia.com"
+
+# Primary: index constituents; secondary: search-based bulk list
+_NSE_URLS = [
+    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20500",
+    "https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20TOTAL%20MARKET",
+]
 
 
 async def _fetch_nifty500_from_nse() -> list[tuple[str, str, str]]:
     """
-    Hit NSE's equity-stockIndices API for live Nifty 500 constituents.
-    Returns list of (ticker.NS, company_name, 'NSE') tuples.
-    Falls back to NIFTY500_STATIC on any error.
+    Try NSE API for live Nifty 500 constituents.
+    Returns list of (ticker.NS, company_name, 'NSE') or empty list on failure.
+    Logs only a single quiet warning — never raises.
     """
     try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-            # Step 1: get cookies by loading the homepage
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            # Prime cookies
             await client.get(NSE_HOME, headers=NSE_HEADERS)
-            # Step 2: hit the API
-            resp = await client.get(NSE_INDEX_URL, headers=NSE_HEADERS)
-            resp.raise_for_status()
-            data = resp.json()
 
-        stocks = data.get("data", [])
-        result: list[tuple[str, str, str]] = []
-        for s in stocks:
-            sym = s.get("symbol", "").strip()
-            name = s.get("meta", {}).get("companyName") or s.get("symbol", "")
-            if sym and sym != "NIFTY 500":
-                result.append((f"{sym}.NS", name, "NSE"))
+            for url in _NSE_URLS:
+                try:
+                    resp = await client.get(url, headers=NSE_HEADERS)
+                    if resp.status_code != 200:
+                        continue
+                    data = resp.json()
+                    stocks = data.get("data", [])
+                    result: list[tuple[str, str, str]] = []
+                    for s in stocks:
+                        sym = s.get("symbol", "").strip()
+                        name = s.get("meta", {}).get("companyName") or sym
+                        if sym and sym != "NIFTY 500" and sym != "NIFTY TOTAL MARKET":
+                            result.append((f"{sym}.NS", name, "NSE"))
+                    if len(result) >= 400:
+                        log.info(f"[search] NSE live: {len(result)} constituents from {url}")
+                        return result
+                except Exception:
+                    continue
 
-        if len(result) >= 400:   # sanity check
-            log.info(f"[search] NSE API returned {len(result)} Nifty 500 constituents")
-            return result
-        else:
-            log.warning(f"[search] NSE API returned only {len(result)} records — using static list")
-            return NIFTY500_STATIC
+    except Exception:
+        pass  # network error — handled below
 
-    except Exception as exc:
-        log.warning(f"[search] NSE live fetch failed ({exc}) — using static list")
-        return NIFTY500_STATIC
+    log.info("[search] NSE live fetch unavailable — using static list")
+    return []
 
 
 # ── In-memory ticker store ─────────────────────────────────────────────────

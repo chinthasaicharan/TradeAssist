@@ -14,6 +14,10 @@ import { HoldingsPanel } from './components/HoldingsPanel'
 import { BTSTPanel } from './components/BTSTPanel'
 import { ChatWidget } from './components/ChatWidget'
 import { ChartPanel } from './components/ChartPanel'
+import { useAuth } from './AuthContext'
+import { AuthPage } from './components/AuthPage'
+import { PaperTradesPanel } from './components/PaperTradesPanel'
+import { Logo } from './components/Logo'
 
 // ── Per-panel error boundary ──────────────────────────────────────────────
 class PanelBoundary extends Component<{ children: ReactNode; name: string }, { err: boolean }> {
@@ -33,6 +37,17 @@ const LS_LAST    = 'ta_last_ticker'
 const LS_FAVS    = 'ta_favourites'
 const MAX_FAVS   = 12
 
+// Known renamed tickers — auto-redirect localStorage to new symbol
+const TICKER_ALIASES: Record<string, string> = {
+  'ZOMATO.NS': 'ETERNAL.NS',
+  'ZOMATO.BO': 'ETERNAL.BO',
+}
+
+function resolveAlias(t: string): { ticker: string; renamed: string | null } {
+  const mapped = TICKER_ALIASES[t.toUpperCase()]
+  return mapped ? { ticker: mapped, renamed: t } : { ticker: t, renamed: null }
+}
+
 function loadLast(): string {
   try { return localStorage.getItem(LS_LAST) ?? '' } catch { return '' }
 }
@@ -44,18 +59,30 @@ function saveFavs(f: string[]) {
 }
 
 export default function App() {
-  const [ticker, setTicker] = useState<string>(loadLast)
+  const { user, loading, logout } = useAuth()
+  const [ticker, setTicker] = useState<string>(() => {
+    const raw = loadLast()
+    return resolveAlias(raw).ticker   // resolve alias on initial load
+  })
   const [favs, setFavs] = useState<string[]>(loadFavs)
+  const [companyName, setCompanyName] = useState<string>('')
+  const [renamedFrom, setRenamedFrom] = useState<string | null>(() => {
+    const raw = loadLast()
+    return resolveAlias(raw).renamed
+  })
 
-  // Persist last ticker on every change
+  // All hooks must run unconditionally before any early return
   useEffect(() => {
     if (ticker) {
       try { localStorage.setItem(LS_LAST, ticker) } catch {}
     }
   }, [ticker])
 
-  const handleSelect = useCallback((t: string) => {
+  const handleSelect = useCallback((t: string, name?: string) => {
     setTicker(t)
+    setRenamedFrom(null)
+    if (name) setCompanyName(name)
+    else setCompanyName(t)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
@@ -73,6 +100,16 @@ export default function App() {
     setFavs(prev => { const next = prev.filter(f => f !== t); saveFavs(next); return next })
   }
 
+  // Early returns AFTER all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-gray-500 text-sm">Loading...</div>
+      </div>
+    )
+  }
+  if (!user) return <AuthPage />
+
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header bar */}
@@ -84,9 +121,7 @@ export default function App() {
             onClick={() => setTicker('')}
             title="Home"
           >
-            <div className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center hover:bg-brand-500 transition-colors">
-              <span className="text-white font-black text-xs">TA</span>
-            </div>
+            <Logo size={32} className="hover:opacity-80 transition-opacity" />
             <span className="font-bold text-white hidden sm:block hover:text-brand-400 transition-colors">TradeAssist</span>
           </div>
           {/* Search */}
@@ -103,6 +138,19 @@ export default function App() {
               {isFav ? '★' : '☆'}
             </button>
           )}
+          {/* User + logout */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <span className="text-xs text-gray-500 hidden sm:block">
+              {user.username}
+            </span>
+            <button
+              onClick={logout}
+              title="Sign out"
+              className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* Favourites bar */}
@@ -135,8 +183,8 @@ export default function App() {
       <main className="max-w-screen-2xl mx-auto px-4 py-6 space-y-4">
         {!ticker ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 bg-brand-900 rounded-2xl flex items-center justify-center mb-6">
-              <span className="text-3xl">📈</span>
+            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center mb-6">
+              <Logo size={64} />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Indian Stock Analysis Dashboard</h2>
             <p className="text-gray-400 text-sm max-w-md">
@@ -171,11 +219,18 @@ export default function App() {
               </div>
             )}
 
+            {/* Paper trades — always visible on homepage */}
+            <div className="mt-8 w-full max-w-3xl">
+              <PanelBoundary name="PaperTrades">
+                <PaperTradesPanel onSelectTicker={handleSelect} compact />
+              </PanelBoundary>
+            </div>
+
             {/* Quick picks */}
             <div className="mt-8 w-full max-w-lg">
               <p className="text-xs text-gray-600 font-semibold uppercase tracking-widest mb-3">Quick picks</p>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {['RELIANCE.NS','TCS.NS','HDFCBANK.NS','INFY.NS','BAJFINANCE.NS','ZOMATO.NS'].map(t => (
+                {['RELIANCE.NS','TCS.NS','HDFCBANK.NS','INFY.NS','BAJFINANCE.NS','ETERNAL.NS'].map(t => (
                   <button
                     key={t}
                     onClick={() => handleSelect(t)}
@@ -190,6 +245,15 @@ export default function App() {
         ) : (
           <>
             <PanelBoundary name="Quote"><QuoteHeader ticker={ticker} /></PanelBoundary>
+            {renamedFrom && (
+              <div className="flex items-center justify-between gap-3 bg-amber-950 border border-amber-700 rounded-xl px-4 py-3 text-sm">
+                <p className="text-amber-300">
+                  <span className="font-bold">{renamedFrom.replace('.NS','').replace('.BO','')}</span> has been renamed to{' '}
+                  <span className="font-bold">{ticker.replace('.NS','').replace('.BO','')}</span>. Showing data for the new ticker.
+                </p>
+                <button onClick={() => setRenamedFrom(null)} className="text-amber-500 hover:text-amber-300 text-lg leading-none shrink-0">×</button>
+              </div>
+            )}
             <PanelBoundary name="Chart"><ChartPanel ticker={ticker} /></PanelBoundary>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <div className="xl:col-span-2"><PanelBoundary name="Fundamentals"><FundamentalsPanel ticker={ticker} /></PanelBoundary></div>
@@ -201,8 +265,8 @@ export default function App() {
             </div>
             <PanelBoundary name="Holdings"><HoldingsPanel ticker={ticker} /></PanelBoundary>
             <PanelBoundary name="AI Insights"><AIInsightsPanel ticker={ticker} /></PanelBoundary>
-            <PanelBoundary name="Recommendation"><RecommendationPanel ticker={ticker} /></PanelBoundary>
-            <PanelBoundary name="BTST"><BTSTPanel ticker={ticker} /></PanelBoundary>
+            <PanelBoundary name="Recommendation"><RecommendationPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
+            <PanelBoundary name="BTST"><BTSTPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <PanelBoundary name="Technical"><TechnicalPanel ticker={ticker} /></PanelBoundary>
               <PanelBoundary name="Trend"><TrendPanel ticker={ticker} /></PanelBoundary>

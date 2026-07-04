@@ -18,7 +18,8 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 def validate_ticker(ticker: str) -> str:
-    t = ticker.upper().strip()
+    from yf_client import resolve_ticker
+    t = resolve_ticker(ticker.upper().strip())
     if not TICKER_RE.match(t):
         raise HTTPException(status_code=422, detail="Invalid ticker format")
     return t

@@ -7,7 +7,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
-from routers import search, market, insights, chat
+from routers import search, market, insights, chat, trades
+from routers.auth import router as auth_router
+from database import init_db
 
 load_dotenv()
 
@@ -16,6 +18,8 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialise SQLite tables (no-op if already exist)
+    init_db()
     # Kick off Nifty 500 live fetch + 24h refresh loop on startup
     await search.startup_load()
     yield
@@ -44,10 +48,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(search.router)
 app.include_router(market.router)
 app.include_router(insights.router)
 app.include_router(chat.router)
+app.include_router(trades.router)
 
 
 @app.get("/health")

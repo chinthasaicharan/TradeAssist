@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
@@ -7,8 +8,9 @@ import { getRecommendation } from '../api'
 import { fmt, SYM } from '../utils'
 import { PanelSkeleton } from './Skeleton'
 import type { MASignal, ChartPattern } from '../types'
+import { pinTrade, unpinTrade, isAlreadyPinned } from '../tradeTracker'
 
-interface Props { ticker: string }
+interface Props { ticker: string; companyName?: string }
 
 const REC_CFG = {
   'Strong Buy':  { bg: 'bg-emerald-950', border: 'border-emerald-500', text: 'text-emerald-300', bar: '#10b981', meter: '#10b981' },
@@ -105,11 +107,62 @@ const ChartTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-export function RecommendationPanel({ ticker }: Props) {
+export function RecommendationPanel({ ticker, companyName }: Props) {
+  const queryClient = useQueryClient()
+  const [pinned, setPinned] = useState(false)
+  const [pinId, setPinId]   = useState<string | null>(null)
+
+  useEffect(() => {
+    isAlreadyPinned(ticker, 'Recommendation').then(({ pinned: p, id }) => {
+      setPinned(p); setPinId(id)
+    }).catch(() => {})
+  }, [ticker])
+
+  useEffect(() => {
+    const sync = () => {
+      isAlreadyPinned(ticker, 'Recommendation').then(({ pinned: p, id }) => {
+        setPinned(p); setPinId(id)
+      }).catch(() => {})
+    }
+    window.addEventListener('ta_trades_updated', sync)
+    return () => window.removeEventListener('ta_trades_updated', sync)
+  }, [ticker])
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['recommendation', ticker],
-    queryFn: () => getRecommendation(ticker),
-    enabled: !!ticker,
+    queryFn:  () => getRecommendation(ticker),
+    enabled:  !!ticker,
+  })
+
+  const pinMutation = useMutation({
+    mutationFn: async () => {
+      if (pinned && pinId) { await unpinTrade(pinId); return null }
+      const lastClose  = data!.price_history[data!.price_history.length - 1]?.close ?? 0
+      const isBullish  = data!.recommendation === 'Strong Buy' || data!.recommendation === 'Buy'
+      const targetPct  = data!.recommendation === 'Strong Buy' ? 0.05
+        : data!.recommendation === 'Buy' ? 0.035
+        : data!.recommendation === 'Strong Sell' ? 0.05 : 0.03
+      const slPct      = targetPct * 0.5
+      const targetPrice = Math.round(lastClose * (1 + (isBullish ? targetPct : -targetPct)) * 100) / 100
+      const stopLoss    = Math.round(lastClose * (1 - (isBullish ? slPct : -slPct)) * 100) / 100
+      return pinTrade({
+        ticker,
+        companyName:  companyName ?? ticker,
+        type:         'Recommendation',
+        verdict:      data!.recommendation,
+        entryPrice:   Math.round(lastClose * 100) / 100,
+        targetPrice,
+        stopLoss,
+        riskReward:   Math.round((targetPct / slPct) * 100) / 100,
+        confidence:   data!.confidence_pct,
+      })
+    },
+    onSuccess: result => {
+      if (result) { setPinned(true);  setPinId(result.id) }
+      else        { setPinned(false); setPinId(null) }
+      queryClient.invalidateQueries({ queryKey: ['pinned-trades'] })
+      window.dispatchEvent(new Event('ta_trades_updated'))
+    },
   })
 
   if (isLoading) return <PanelSkeleton />
@@ -126,7 +179,22 @@ export function RecommendationPanel({ ticker }: Props) {
 
   return (
     <div className="panel space-y-5">
-      <p className="panel-title">Probability & Recommendation</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="panel-title">Probability & Recommendation</p>
+        <button
+          onClick={() => pinMutation.mutate()}
+          disabled={pinMutation.isPending}
+          title={pinned ? 'Stop monitoring this trade' : 'Monitor this trade — track target/SL outcome'}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold transition-all border ${
+            pinned
+              ? 'bg-amber-900 border-amber-600 text-amber-300 hover:bg-amber-800'
+              : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-amber-300'
+          } ${pinMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
+        >
+          <span>{pinned ? '📌' : '📊'}</span>
+          <span>{pinned ? 'Monitoring' : 'Monitor Trade'}</span>
+        </button>
+      </div>
 
       {/* Main verdict */}
       <div className={`${cfg.bg} border-2 ${cfg.border} rounded-2xl p-5`}>
