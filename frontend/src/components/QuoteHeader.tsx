@@ -12,11 +12,13 @@ function currencySymbol(currency: string): string {
 }
 
 export function QuoteHeader({ ticker }: Props) {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['quote', ticker],
     queryFn: () => getQuote(ticker),
     enabled: !!ticker,
     refetchInterval: 60_000,
+    retry: 2,
+    retryDelay: 3000,
   })
 
   if (isLoading) {
@@ -29,12 +31,24 @@ export function QuoteHeader({ ticker }: Props) {
   }
 
   if (isError || !data) {
+    const alreadyNSE = ticker.endsWith('.NS') || ticker.endsWith('.BO')
     return (
       <div className="panel border-red-800">
-        <p className="text-red-400 text-sm">
-          Failed to load quote for <strong>{ticker}</strong>.
-          {' '}For Indian stocks use NSE format e.g. <strong>RELIANCE.NS</strong>
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-red-400 text-sm">
+            Failed to load quote for <strong>{ticker}</strong>.{' '}
+            {alreadyNSE
+              ? 'Yahoo Finance may be temporarily rate-limited. Try again in a few seconds.'
+              : <>For Indian stocks use NSE format e.g. <strong>RELIANCE.NS</strong></>
+            }
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="shrink-0 text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }

@@ -2,50 +2,84 @@
 yf_client.py — rate-limit-safe yfinance wrapper for TradeAssist
 
 Strategy:
-  1. curl_cffi Chrome session  → passes Yahoo's TLS fingerprint check
-  2. asyncio.Semaphore(1)      → only ONE Yahoo request at a time (safest)
-  3. 1-second gap between calls → avoids burst triggering IP ban
-  4. 3 retries × exponential backoff on 429
-  5. App-level TTL cache (cache.py) keeps hot data in-memory
+  1. curl_cffi Chrome session  → passes Yahoo TLS fingerprint check
+  2. asyncio.Semaphore(1)      → serialise all Yahoo calls (one at a time)
+  3. Adaptive throttle         → 2s between calls, backs off on 429
+  4. Symbol fallback           → .NS → .BO → bare → fail
+  5. In-memory result cache    → avoids repeat fetches for hot symbols
+  6. Jitter on retry           → prevents thundering-herd on server restart
 """
 import asyncio
 import logging
 import time
+import random
 from typing import Any
 
 import pandas as pd
 
 log = logging.getLogger(__name__)
 
-# ── curl_cffi session (Chrome impersonation) ───────────────────────────────
+# ── curl_cffi Chrome session ───────────────────────────────────────────────
 try:
     from curl_cffi import requests as cffi_requests
     _SESSION = cffi_requests.Session(impersonate="chrome110")
+    _YF_SESSION = _SESSION   # alias used by cashflow endpoint
     log.info("[yfc] curl_cffi Chrome110 session ready")
 except Exception as e:
     _SESSION = None
+    _YF_SESSION = None
     log.warning(f"[yfc] curl_cffi unavailable ({e}), using default requests")
 
 # ── Rate-limit config ──────────────────────────────────────────────────────
-MAX_RETRIES = 3
-BASE_DELAY  = 4.0      # seconds before first retry
-INTER_DELAY = 1.2      # seconds to sleep between ANY two Yahoo calls
+MAX_RETRIES  = 4
+BASE_DELAY   = 6.0     # first retry delay (seconds)
+INTER_DELAY  = 2.0     # minimum gap between any two Yahoo calls
 
 _last_call_time: float = 0.0
+_backoff_until:  float = 0.0  # global cooldown after a 429
 
 
 def _throttle():
-    """Sleep enough so we never fire requests faster than INTER_DELAY apart."""
-    global _last_call_time
+    global _last_call_time, _backoff_until
     now = time.monotonic()
-    gap = now - _last_call_time
+    # Respect global backoff from a 429
+    if now < _backoff_until:
+        time.sleep(_backoff_until - now + random.uniform(0.1, 0.5))
+    # Enforce inter-call delay
+    gap = time.monotonic() - _last_call_time
     if gap < INTER_DELAY:
-        time.sleep(INTER_DELAY - gap)
+        time.sleep(INTER_DELAY - gap + random.uniform(0, 0.3))
     _last_call_time = time.monotonic()
 
 
 def _is_429(exc: Exception) -> bool:
-    return "429" in str(exc) or "Too Many Requests" in str(exc).lower()
+    s = str(exc).lower()
+    return "429" in s or "too many requests" in s or "rate limit" in s
+
+
+def _is_not_found(exc: Exception) -> bool:
+    s = str(exc).lower()
+    return "404" in s or "not found" in s or "no data found" in s or "delisted" in s
+
+
+# ── Symbol fallback chain ──────────────────────────────────────────────────
+def _fallback_symbols(symbol: str) -> list[str]:
+    """Return ordered list of symbols to try: .NS → .BO → bare → original."""
+    sym = symbol.upper().strip()
+    candidates = [sym]
+    base = sym.replace(".NS", "").replace(".BO", "")
+    if sym.endswith(".NS"):
+        candidates = [sym, f"{base}.BO", base]
+    elif sym.endswith(".BO"):
+        candidates = [sym, f"{base}.NS", base]
+    elif "." not in sym:
+        candidates = [f"{sym}.NS", f"{sym}.BO", sym]
+    # Deduplicate preserving order
+    seen, out = set(), []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c); out.append(c)
+    return out
 
 
 # ── yfinance ticker factory ────────────────────────────────────────────────
@@ -59,103 +93,132 @@ def _ticker(symbol: str):
 # ── Sync fetch primitives ──────────────────────────────────────────────────
 
 def _fetch_info_sync(symbol: str) -> dict:
-    for attempt in range(MAX_RETRIES + 1):
-        _throttle()
-        try:
-            info = _ticker(symbol).info or {}
-            if info and len(info) > 5:
-                return info
-            # Empty / stub response — not a 429, just no data
-            log.warning(f"[yfc] empty info for {symbol}")
-            return {}
-        except Exception as exc:
-            if _is_429(exc) and attempt < MAX_RETRIES:
-                delay = BASE_DELAY * (2 ** attempt)
-                log.warning(f"[yfc] 429 info/{symbol}, retry {attempt+1} in {delay:.0f}s")
-                time.sleep(delay)
-            else:
-                log.warning(f"[yfc] info/{symbol} failed: {exc}")
-                break
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                info = _ticker(sym).info or {}
+                if info and len(info) > 5 and (
+                    info.get("regularMarketPrice") or info.get("currentPrice") or
+                    info.get("longName") or info.get("shortName")
+                ):
+                    # Tag which symbol actually worked
+                    info["_resolved_symbol"] = sym
+                    return info
+                # Stub / empty — not a 429
+                log.warning(f"[yfc] empty info for {sym}")
+                break   # try next fallback symbol
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt) + random.uniform(1, 3)
+                    _backoff_until = time.monotonic() + delay
+                    log.warning(f"[yfc] 429 info/{sym}, cooling {delay:.0f}s")
+                    time.sleep(delay)
+                elif _is_not_found(exc):
+                    log.warning(f"[yfc] not found: {sym}, trying next")
+                    break
+                else:
+                    log.warning(f"[yfc] info/{sym} failed: {exc}")
+                    break
     return {}
 
 
 def _fetch_history_sync(symbol: str, period: str, interval: str) -> pd.DataFrame:
-    for attempt in range(MAX_RETRIES + 1):
-        _throttle()
-        try:
-            hist = _ticker(symbol).history(period=period, interval=interval)
-            if hist is not None and not hist.empty:
-                return hist
-            log.warning(f"[yfc] empty history for {symbol}")
-            return pd.DataFrame()
-        except Exception as exc:
-            if _is_429(exc) and attempt < MAX_RETRIES:
-                delay = BASE_DELAY * (2 ** attempt)
-                log.warning(f"[yfc] 429 hist/{symbol}, retry {attempt+1} in {delay:.0f}s")
-                time.sleep(delay)
-            else:
-                log.warning(f"[yfc] history/{symbol} failed: {exc}")
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                hist = _ticker(sym).history(period=period, interval=interval)
+                if hist is not None and not hist.empty:
+                    return hist
+                log.warning(f"[yfc] empty history for {sym}")
                 break
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt) + random.uniform(1, 3)
+                    _backoff_until = time.monotonic() + delay
+                    log.warning(f"[yfc] 429 hist/{sym}, cooling {delay:.0f}s")
+                    time.sleep(delay)
+                elif _is_not_found(exc):
+                    log.warning(f"[yfc] not found hist: {sym}, trying next")
+                    break
+                else:
+                    log.warning(f"[yfc] history/{sym} failed: {exc}")
+                    break
     return pd.DataFrame()
 
 
 def _fetch_financials_sync(symbol: str) -> tuple[Any, Any]:
-    for attempt in range(MAX_RETRIES + 1):
-        _throttle()
-        try:
-            t = _ticker(symbol)
-            ann = t.financials
-            qtr = t.quarterly_financials
-            return ann, qtr
-        except Exception as exc:
-            if _is_429(exc) and attempt < MAX_RETRIES:
-                delay = BASE_DELAY * (2 ** attempt)
-                log.warning(f"[yfc] 429 fin/{symbol}, retry {attempt+1} in {delay:.0f}s")
-                time.sleep(delay)
-            else:
-                log.warning(f"[yfc] financials/{symbol} failed: {exc}")
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                t = _ticker(sym)
+                ann = t.financials
+                qtr = t.quarterly_financials
+                if ann is not None and not ann.empty:
+                    return ann, qtr
                 break
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt) + random.uniform(1, 3)
+                    _backoff_until = time.monotonic() + delay
+                    time.sleep(delay)
+                else:
+                    log.warning(f"[yfc] financials/{sym} failed: {exc}")
+                    break
     return None, None
 
 
 def _fetch_news_sync(symbol: str) -> list:
-    for attempt in range(MAX_RETRIES + 1):
-        _throttle()
-        try:
-            return _ticker(symbol).news or []
-        except Exception as exc:
-            if _is_429(exc) and attempt < MAX_RETRIES:
-                time.sleep(BASE_DELAY * (2 ** attempt))
-            else:
-                log.warning(f"[yfc] news/{symbol} failed: {exc}")
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                news = _ticker(sym).news or []
+                if news:
+                    return news
                 break
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt)
+                    _backoff_until = time.monotonic() + delay
+                    time.sleep(delay)
+                else:
+                    log.warning(f"[yfc] news/{sym} failed: {exc}")
+                    break
     return []
 
 
 def _fetch_holdings_sync(symbol: str) -> dict:
-    """Fetch major_holders, institutional_holders, mutualfund_holders."""
-    for attempt in range(MAX_RETRIES + 1):
-        _throttle()
-        try:
-            t = _ticker(symbol)
-            return {
-                "major":    t.major_holders,
-                "inst":     t.institutional_holders,
-                "mf":       t.mutualfund_holders,
-            }
-        except Exception as exc:
-            if _is_429(exc) and attempt < MAX_RETRIES:
-                delay = BASE_DELAY * (2 ** attempt)
-                log.warning(f"[yfc] 429 holdings/{symbol}, retry {attempt+1} in {delay:.0f}s")
-                time.sleep(delay)
-            else:
-                log.warning(f"[yfc] holdings/{symbol} failed: {exc}")
-                break
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                t = _ticker(sym)
+                mh = t.major_holders
+                return {
+                    "major": mh,
+                    "inst":  t.institutional_holders,
+                    "mf":    t.mutualfund_holders,
+                }
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt)
+                    _backoff_until = time.monotonic() + delay
+                    time.sleep(delay)
+                else:
+                    log.warning(f"[yfc] holdings/{sym} failed: {exc}")
+                    break
     return {"major": None, "inst": None, "mf": None}
 
 
-# ── Semaphore — ONE request at a time ────────────────────────────────────
-# Lazy init avoids "attached to a different event loop" on uvicorn reload
+# ── Semaphore — ONE Yahoo call at a time ──────────────────────────────────
 _sem: asyncio.Semaphore | None = None
 
 def _get_sem() -> asyncio.Semaphore:
@@ -174,9 +237,7 @@ async def fetch_info(symbol: str) -> dict:
         )
 
 
-async def fetch_history(
-    symbol: str, period: str = "1y", interval: str = "1d"
-) -> pd.DataFrame:
+async def fetch_history(symbol: str, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
     async with _get_sem():
         return await asyncio.get_event_loop().run_in_executor(
             None, lambda: _fetch_history_sync(symbol, period, interval)
