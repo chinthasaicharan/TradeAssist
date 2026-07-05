@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, Component, type ReactNode
 import { useQuery } from '@tanstack/react-query'
 import {
   createChart, CandlestickSeries, LineSeries, HistogramSeries,
-  ColorType, CrosshairMode, type IChartApi, type Time,
+  ColorType, CrosshairMode, createSeriesMarkers,
+  type IChartApi, type Time, type SeriesMarker,
 } from 'lightweight-charts'
 import { getChartData } from '../api'
 import { fmt, SYM } from '../utils'
@@ -260,46 +261,35 @@ function ChartInner({ ticker }: Props) {
         if (stBullPts.length) stBullLine.setData(stBullPts)
         if (stBearPts.length) stBearLine.setData(stBearPts)
 
-        // BUY signal markers (▲) — long entries
-        const longSignalSeries = pc.addSeries(LineSeries, {
-          color: 'transparent', lineWidth: 1,
-          priceLineVisible: false, lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        })
-        const longEntries = bars.filter((d: any) => d.fib_signal === 'long')
-        if (longEntries.length) {
-          longSignalSeries.setData(longEntries.map((d: any) => ({ time: d.date as Time, value: d.low * 0.998 })))
-          longSignalSeries.setMarkers(
-            longEntries.map((d: any) => ({
-              time: d.date as Time,
-              position: 'belowBar' as const,
-              color: COLORS.bull,
-              shape: 'arrowUp' as const,
-              text: 'BUY',
-              size: 1,
-            }))
-          )
-        }
+        // BUY / SELL signal markers — attached to the candles series via createSeriesMarkers
+        const allMarkers: SeriesMarker<Time>[] = []
 
-        // SELL signal markers (▼) — short entries
-        const shortSignalSeries = pc.addSeries(LineSeries, {
-          color: 'transparent', lineWidth: 1,
-          priceLineVisible: false, lastValueVisible: false,
-          crosshairMarkerVisible: false,
+        bars.filter((d: any) => d.fib_signal === 'long').forEach((d: any) => {
+          allMarkers.push({
+            time:     d.date as Time,
+            position: 'belowBar',
+            color:    COLORS.bull,
+            shape:    'arrowUp',
+            text:     'BUY',
+            size:     1,
+          })
         })
-        const shortEntries = bars.filter((d: any) => d.fib_signal === 'short')
-        if (shortEntries.length) {
-          shortSignalSeries.setData(shortEntries.map((d: any) => ({ time: d.date as Time, value: d.high * 1.002 })))
-          shortSignalSeries.setMarkers(
-            shortEntries.map((d: any) => ({
-              time: d.date as Time,
-              position: 'aboveBar' as const,
-              color: COLORS.bear,
-              shape: 'arrowDown' as const,
-              text: 'SELL',
-              size: 1,
-            }))
-          )
+
+        bars.filter((d: any) => d.fib_signal === 'short').forEach((d: any) => {
+          allMarkers.push({
+            time:     d.date as Time,
+            position: 'aboveBar',
+            color:    COLORS.bear,
+            shape:    'arrowDown',
+            text:     'SELL',
+            size:     1,
+          })
+        })
+
+        if (allMarkers.length) {
+          // Sort by time (required by createSeriesMarkers)
+          allMarkers.sort((a, b) => String(a.time) < String(b.time) ? -1 : 1)
+          createSeriesMarkers(candles, allMarkers)
         }
       } catch {}
     }
