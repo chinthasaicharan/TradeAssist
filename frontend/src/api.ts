@@ -85,3 +85,6 @@ export const sendChatMessage = (ticker: string, body: ChatRequest) =>
 
 export const getChartData = (ticker: string, interval: '5m' | '15m' | '30m' | '1d' | '1wk' | '1mo') =>
   api.get<any>(`/chart/${ticker}`, { params: { interval } }).then(r => r.data)
+
+export const getOrbScanner = (interval: '5m' | '15m' | '30m', tickers?: string) =>
+  api.get<any>('/orb-scanner', { params: { interval, tickers: tickers ?? '' } }).then(r => r.data)

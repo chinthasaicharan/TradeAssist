@@ -18,6 +18,7 @@ import { useAuth } from './AuthContext'
 import { AuthPage } from './components/AuthPage'
 import { PaperTradesPanel } from './components/PaperTradesPanel'
 import { Logo } from './components/Logo'
+import { ORBScannerPanel } from './components/ORBScannerPanel'
 
 // ── Per-panel error boundary ──────────────────────────────────────────────
 class PanelBoundary extends Component<{ children: ReactNode; name: string }, { err: boolean }> {
@@ -223,6 +224,13 @@ export default function App() {
             <div className="mt-8 w-full max-w-3xl">
               <PanelBoundary name="PaperTrades">
                 <PaperTradesPanel onSelectTicker={handleSelect} compact />
+              </PanelBoundary>
+            </div>
+
+            {/* ORB Scanner */}
+            <div className="mt-6 w-full max-w-3xl">
+              <PanelBoundary name="ORBScanner">
+                <ORBScannerPanel onSelectTicker={handleSelect} />
               </PanelBoundary>
             </div>
 

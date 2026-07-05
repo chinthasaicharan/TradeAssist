@@ -1,10 +1,13 @@
 import re
 import asyncio
+import logging
 from datetime import datetime, timezone as _tz
 from typing import Any
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
+
+log = logging.getLogger(__name__)
 from models import (
     QuoteResponse, FundamentalsResponse, FinancialsResponse, FinancialPeriod,
     TechnicalResponse, PriceLevel, TrendResponse, TrendSignal,
@@ -2064,4 +2067,179 @@ async def get_chart_data(
         "supertrend_signal": "bullish" if (st_bull[-1] if st_bull else True) else "bearish",
     }
     cache.set(cache_key, result, ttl=ttl)
+    return result
+
+
+# ── ORB SCANNER ───────────────────────────────────────────────────────────
+#
+# GET /api/orb-scanner?interval=15m&tickers=RELIANCE.NS,TCS.NS,...
+#
+# For each ticker fetches today's intraday bars, computes the Opening Range
+# (first bar of the session), then checks whether the latest bar has broken
+# above ORB-High (bullish) or below ORB-Low (bearish).
+# Returns only tickers where a breakout has occurred.
+
+# Default watchlist — Nifty 50 heavyweights
+DEFAULT_ORB_WATCHLIST: list[str] = [
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+    "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "KOTAKBANK.NS",
+    "LT.NS", "AXISBANK.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS",
+    "MARUTI.NS", "TATAMOTORS.NS", "NTPC.NS", "POWERGRID.NS", "ONGC.NS",
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "TECHM.NS", "TITAN.NS",
+    "ULTRACEMCO.NS", "NESTLEIND.NS", "ADANIENT.NS", "ADANIPORTS.NS",
+    "BAJAJFINSV.NS", "ETERNAL.NS", "TATACONSUM.NS", "DIVISLAB.NS",
+    "JSWSTEEL.NS", "TATASTEEL.NS", "HINDALCO.NS", "COALINDIA.NS",
+    "BPCL.NS", "INDUSINDBK.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+    "TRENT.NS", "GRASIM.NS", "SHRIRAMFIN.NS", "BEL.NS",
+    "HAL.NS", "BAJAJ-AUTO.NS", "M&M.NS", "BRITANNIA.NS", "DABUR.NS",
+]
+
+
+async def _orb_check_single(ticker: str, interval: str) -> dict | None:
+    """
+    Fetch intraday history for one ticker and return ORB breakout info,
+    or None if no breakout / no data.
+    """
+    try:
+        import pytz
+        _ist = pytz.timezone("Asia/Kolkata")
+
+        period_map = {"5m": "5d", "15m": "5d", "30m": "5d"}
+        period = period_map.get(interval, "5d")
+        hist = await yfc.fetch_history(ticker, period=period, interval=interval)
+        if hist is None or hist.empty:
+            return None
+
+        highs  = hist["High"].tolist()
+        lows   = hist["Low"].tolist()
+        closes = hist["Close"].tolist()
+        vols   = hist["Volume"].tolist()
+
+        # Use the most recent trading session date in the data
+        # (avoids issues with weekends/holidays and UTC vs IST)
+        bar_dates = []
+        for idx in hist.index:
+            try:
+                bar_dates.append(idx.tz_convert(_ist).date() if idx.tzinfo else idx.date())
+            except Exception:
+                try:
+                    bar_dates.append(idx.date())
+                except Exception:
+                    bar_dates.append(None)
+
+        # Most recent session date
+        valid_dates = [d for d in bar_dates if d is not None]
+        if not valid_dates:
+            return None
+        latest_date = max(valid_dates)
+
+        today_indices = [i for i, d in enumerate(bar_dates) if d == latest_date]
+        if len(today_indices) < 2:
+            return None
+
+        # ORB = first bar of latest session
+        first = today_indices[0]
+        orb_high = round(highs[first], 2)
+        orb_low  = round(lows[first],  2)
+
+        # Latest bar
+        last = today_indices[-1]
+        last_close  = round(closes[last], 2)
+        last_high   = round(highs[last],  2)
+        last_low    = round(lows[last],   2)
+        last_volume = int(vols[last])
+
+        # Volume average over session bars
+        today_vols = [vols[i] for i in today_indices]
+        avg_vol = sum(today_vols) / len(today_vols) if today_vols else 0
+
+        # Breakout detection — close crossed beyond ORB level on a bar after the first
+        breakout = None
+        if last_close > orb_high and last != first:
+            breakout = "bullish"
+        elif last_close < orb_low and last != first:
+            breakout = "bearish"
+
+        if breakout is None:
+            return None
+
+        # % move from ORB level
+        ref = orb_high if breakout == "bullish" else orb_low
+        move_pct = round((last_close - ref) / ref * 100, 2)
+
+        # RSI snapshot
+        rsi_val = None
+        rsi_series = _compute_rsi_series(closes, 14)
+        if rsi_series:
+            rsi_val = next((v for v in reversed(rsi_series) if v is not None), None)
+
+        return {
+            "ticker":        ticker,
+            "breakout":      breakout,
+            "orb_high":      orb_high,
+            "orb_low":       orb_low,
+            "last_close":    last_close,
+            "last_high":     last_high,
+            "last_low":      last_low,
+            "move_pct":      move_pct,
+            "volume":        last_volume,
+            "volume_vs_avg": round(last_volume / avg_vol, 2) if avg_vol > 0 else None,
+            "rsi":           round(rsi_val, 1) if rsi_val else None,
+            "bars_today":    len(today_indices),
+            "session_date":  str(latest_date),
+        }
+    except Exception as e:
+        log.warning(f"[orb-scanner] {ticker} failed: {e}")
+        return None
+
+
+@router.get("/api/orb-scanner")
+async def get_orb_scanner(
+    interval: str = Query("15m", regex="^(5m|15m|30m)$"),
+    tickers: str = Query("", description="Comma-separated list; leave empty for default Nifty 50 watchlist"),
+):
+    cache_key = f"orb-scanner:{interval}:{tickers}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    # Build ticker list
+    if tickers.strip():
+        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()][:30]
+    else:
+        ticker_list = DEFAULT_ORB_WATCHLIST
+
+    # Resolve aliases
+    ticker_list = [yfc.resolve_ticker(t) for t in ticker_list]
+
+    # Run concurrently — but cap to 5 at a time to avoid Yahoo rate limits
+    results: list[dict] = []
+    batch_size = 5
+    for i in range(0, len(ticker_list), batch_size):
+        batch = ticker_list[i:i + batch_size]
+        batch_results = await asyncio.gather(
+            *[_orb_check_single(t, interval) for t in batch],
+            return_exceptions=True,
+        )
+        for r in batch_results:
+            if isinstance(r, dict) and r is not None:
+                results.append(r)
+        if i + batch_size < len(ticker_list):
+            await asyncio.sleep(1.0)  # brief pause between batches
+
+    # Sort: bullish first (by move_pct desc), then bearish (by move_pct asc)
+    bullish = sorted([r for r in results if r["breakout"] == "bullish"],
+                     key=lambda x: x["move_pct"], reverse=True)
+    bearish = sorted([r for r in results if r["breakout"] == "bearish"],
+                     key=lambda x: x["move_pct"])
+
+    result = {
+        "interval": interval,
+        "scanned":  len(ticker_list),
+        "breakouts": bullish + bearish,
+        "bullish_count": len(bullish),
+        "bearish_count": len(bearish),
+        "session_date": bullish[0]["session_date"] if bullish else (bearish[0]["session_date"] if bearish else None),
+    }
+    cache.set(cache_key, result, ttl=180)  # 3 min cache — intraday data
     return result
