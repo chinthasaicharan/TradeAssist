@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { sendChatMessage } from '../api'
+import { sendChatMessage, getStrategies } from '../api'
 import type { ChatMessage } from '../types'
 
 interface Props {
@@ -18,6 +18,8 @@ const SUGGESTIONS = [
   'What is the 52-week performance?',
   'What are the recent news headlines?',
   'Summarise the growth metrics',
+  'Apply my Fibonacci + Supertrend strategy to this stock',
+  'Does this stock meet my strategy criteria?',
 ]
 
 function MarkdownText({ text }: { text: string }) {
@@ -59,8 +61,20 @@ export function ChatWidget({ ticker }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [strategies, setStrategies] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
+
+  // Load user strategies once on mount
+  useEffect(() => {
+    getStrategies().then(list => {
+      if (list.length === 0) return
+      const summary = list.map(s =>
+        `Strategy "${s.name}": ${s.description || 'No description'}`
+      ).join('\n')
+      setStrategies(summary)
+    }).catch(() => {})
+  }, [])
 
   // Reset conversation when ticker changes
   useEffect(() => {
@@ -92,6 +106,7 @@ export function ChatWidget({ ticker }: Props) {
       const resp = await sendChatMessage(ticker, {
         question,
         messages: messages.slice(-8),   // send last 8 turns for context
+        strategies: strategies || undefined,
       })
       setMessages(prev => [...prev, { role: 'assistant', content: resp.answer }])
     } catch (e: unknown) {

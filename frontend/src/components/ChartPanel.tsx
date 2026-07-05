@@ -32,6 +32,7 @@ const OVERLAYS = [
   { key:'sma200',     label:'SMA 200', color:'#a855f7', field:'sma200' },
   { key:'bb',         label:'BB',      color:'#0ea5e9', field:'bb_upper' },
   { key:'supertrend', label:'ST',      color:'#f97316', field:'supertrend' },
+  { key:'fibst',      label:'Fib+ST ⚡', color:'#a3e635', field:'fib_618' },
   { key:'volume',     label:'Volume',  color:'#374151', field:'volume' },
 ]
 
@@ -222,6 +223,87 @@ function ChartInner({ ticker }: Props) {
       } catch {}
     }
 
+    // ── Fib + Supertrend strategy overlay ────────────────────────────
+    if (active.has('fibst')) {
+      try {
+        // Fib 61.8% line (golden zone top)
+        const fib618Line = pc.addSeries(LineSeries, {
+          color: '#a3e635', lineWidth: 1, lineStyle: 2,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+          title: 'Fib 61.8%',
+        })
+        const f618pts = bars.filter((d: any) => d.fib_618 != null)
+          .map((d: any) => ({ time: d.date as Time, value: d.fib_618 as number }))
+        if (f618pts.length) fib618Line.setData(f618pts)
+
+        // Fib 38.2% line (golden zone bottom)
+        const fib382Line = pc.addSeries(LineSeries, {
+          color: '#facc15', lineWidth: 1, lineStyle: 2,
+          priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+          title: 'Fib 38.2%',
+        })
+        const f382pts = bars.filter((d: any) => d.fib_382 != null)
+          .map((d: any) => ({ time: d.date as Time, value: d.fib_382 as number }))
+        if (f382pts.length) fib382Line.setData(f382pts)
+
+        // Supertrend (bull=lime, bear=red) — always shown with strategy
+        const stBullLine = pc.addSeries(LineSeries, {
+          color: COLORS.bull, lineWidth: 2,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        })
+        const stBearLine = pc.addSeries(LineSeries, {
+          color: COLORS.bear, lineWidth: 2,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        })
+        const stBullPts = bars.filter((d: any) => d.st_bull  && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
+        const stBearPts = bars.filter((d: any) => !d.st_bull && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
+        if (stBullPts.length) stBullLine.setData(stBullPts)
+        if (stBearPts.length) stBearLine.setData(stBearPts)
+
+        // BUY signal markers (▲) — long entries
+        const longSignalSeries = pc.addSeries(LineSeries, {
+          color: 'transparent', lineWidth: 1,
+          priceLineVisible: false, lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        })
+        const longEntries = bars.filter((d: any) => d.fib_signal === 'long')
+        if (longEntries.length) {
+          longSignalSeries.setData(longEntries.map((d: any) => ({ time: d.date as Time, value: d.low * 0.998 })))
+          longSignalSeries.setMarkers(
+            longEntries.map((d: any) => ({
+              time: d.date as Time,
+              position: 'belowBar' as const,
+              color: COLORS.bull,
+              shape: 'arrowUp' as const,
+              text: 'BUY',
+              size: 1,
+            }))
+          )
+        }
+
+        // SELL signal markers (▼) — short entries
+        const shortSignalSeries = pc.addSeries(LineSeries, {
+          color: 'transparent', lineWidth: 1,
+          priceLineVisible: false, lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        })
+        const shortEntries = bars.filter((d: any) => d.fib_signal === 'short')
+        if (shortEntries.length) {
+          shortSignalSeries.setData(shortEntries.map((d: any) => ({ time: d.date as Time, value: d.high * 1.002 })))
+          shortSignalSeries.setMarkers(
+            shortEntries.map((d: any) => ({
+              time: d.date as Time,
+              position: 'aboveBar' as const,
+              color: COLORS.bear,
+              shape: 'arrowDown' as const,
+              text: 'SELL',
+              size: 1,
+            }))
+          )
+        }
+      } catch {}
+    }
+
     pc.timeScale().fitContent()
 
     // ── Sub-panel chart ───────────────────────────────────────────────
@@ -301,7 +383,7 @@ function ChartInner({ ticker }: Props) {
           <span className="text-xs font-mono font-bold text-brand-400">{ticker}</span>
           {lastBar && <span className="text-base font-bold text-white">{SYM}{fmt(lastBar.close)}</span>}
         </div>
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-wrap items-center">
           {/* Intraday */}
           <div className="flex gap-1 border-r border-gray-700 pr-2 mr-1">
             {(['5m','15m','30m'] as Interval[]).map(i => (
@@ -371,6 +453,34 @@ function ChartInner({ ticker }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Fib+ST strategy live signal */}
+      {active.has('fibst') && (() => {
+        const lastSignal = [...(data.bars ?? [])].reverse().find((d: any) => d.fib_signal != null)
+        const lastBull  = lastSignal?.fib_signal === 'long'
+        const lastBear  = lastSignal?.fib_signal === 'short'
+        const lastF618  = data.bars?.[data.bars.length - 1]?.fib_618
+        const lastF382  = data.bars?.[data.bars.length - 1]?.fib_382
+        return (
+          <div className={`rounded-xl border px-4 py-3 flex flex-wrap items-center gap-4 text-xs ${
+            lastBull ? 'bg-emerald-950 border-emerald-700' :
+            lastBear ? 'bg-red-950 border-red-700' :
+            'bg-gray-800 border-gray-700'
+          }`}>
+            <div>
+              <span className="text-gray-400 uppercase tracking-wide font-semibold">Fib+ST Strategy</span>
+              <span className={`ml-2 font-bold text-sm ${lastBull ? 'text-emerald-400' : lastBear ? 'text-red-400' : 'text-gray-400'}`}>
+                {lastBull ? '▲ BUY Signal' : lastBear ? '▼ SELL Signal' : 'No active signal'}
+              </span>
+            </div>
+            <div className="flex gap-4 ml-auto">
+              {lastF618 != null && <span className="text-lime-400">Fib 61.8% <strong>{SYM}{fmt(lastF618)}</strong></span>}
+              {lastF382 != null && <span className="text-yellow-400">Fib 38.2% <strong>{SYM}{fmt(lastF382)}</strong></span>}
+              <span className="text-gray-500">Signal = price in golden zone + ST confirms</span>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Support / Resistance table */}
       {showSR && (

@@ -16,6 +16,7 @@ from models import (
     RecommendationResponse, MASignal, ChartPattern,
     HoldingsResponse, HolderEntry,
     BTSTResponse, BTSTSignal,
+    SwingResponse, SwingFactor,
 )
 import cache
 import yf_client as yfc
@@ -1727,6 +1728,344 @@ def _sma_btst(closes: list[float], window: int) -> float | None:
     return round(sum(closes[-window:]) / window, 2)
 
 
+# ── SWING TRADE ANALYSER ──────────────────────────────────────────────────
+#
+# GET /api/swing/{ticker}
+# Multi-factor swing trade score, target, stop-loss and probability.
+# Designed for 5–20 day hold trades.
+
+@router.get("/api/swing/{ticker}", response_model=SwingResponse)
+async def get_swing(ticker: str):
+    ticker = validate_ticker(ticker)
+    cached = cache.get(f"swing:{ticker}")
+    if cached:
+        return cached
+
+    hist, info = await asyncio.gather(
+        yfc.fetch_history(ticker, period="1y", interval="1d"),
+        yfc.fetch_info(ticker),
+        return_exceptions=True,
+    )
+
+    if isinstance(hist, Exception) or hist.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {ticker}")
+    if isinstance(info, Exception):
+        info = {}
+
+    closes  = hist["Close"].tolist()
+    highs   = hist["High"].tolist()
+    lows    = hist["Low"].tolist()
+    volumes = hist["Volume"].tolist()
+    opens   = hist["Open"].tolist()
+
+    price = closes[-1]
+    name  = (info or {}).get("longName") or (info or {}).get("shortName") or ticker
+
+    # ── Core indicators ───────────────────────────────────────────────────
+    def _sma(w: int) -> float | None:
+        if len(closes) < w: return None
+        return round(sum(closes[-w:]) / w, 2)
+
+    def _ema(span: int) -> float:
+        k, v = 2/(span+1), closes[0]
+        for c in closes[1:]: v = c*k + v*(1-k)
+        return round(v, 2)
+
+    def _atr(period: int = 14) -> float:
+        trs = [max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1]))
+               for i in range(1, len(closes))]
+        return round(sum(trs[-period:]) / period, 2) if len(trs) >= period else round(highs[-1]-lows[-1], 2)
+
+    def _rsi(period: int = 14) -> float:
+        if len(closes) < period+1: return 50.0
+        deltas = [closes[i]-closes[i-1] for i in range(1, len(closes))]
+        g = sum(d for d in deltas[-period:] if d > 0)/period
+        l = sum(-d for d in deltas[-period:] if d < 0)/period
+        return round(100 - 100/(1+g/l), 2) if l else 100.0
+
+    def _macd() -> tuple[float, float]:
+        def ema_s(data, sp):
+            k, v = 2/(sp+1), data[0]
+            r = [v]
+            for x in data[1:]: v = x*k+v*(1-k); r.append(v)
+            return r
+        if len(closes) < 26: return 0.0, 0.0
+        ml = [a-b for a,b in zip(ema_s(closes,12), ema_s(closes,26))]
+        sig = ema_s(ml[25:], 9)
+        return round(ml[-1],4), round(sig[-1],4)
+
+    ma20  = _sma(20);  ma50  = _sma(50);  ma200 = _sma(200)
+    ema9  = _ema(9);   ema21 = _ema(21)
+    atr   = _atr(14);  rsi   = _rsi(14)
+    macd_val, macd_sig = _macd()
+
+    avg_vol20 = sum(volumes[-20:]) / 20 if len(volumes) >= 20 else volumes[-1]
+    vol_ratio = round(volumes[-1] / avg_vol20, 2) if avg_vol20 > 0 else 1.0
+
+    # 52-week range
+    w52_high = round(max(highs), 2)
+    w52_low  = round(min(lows),  2)
+    w52_range = w52_high - w52_low
+
+    # Fibonacci from 52W swing
+    fib382 = round(w52_low + 0.382 * w52_range, 2) if w52_range > 0 else None
+    fib618 = round(w52_low + 0.618 * w52_range, 2) if w52_range > 0 else None
+    fib500 = round(w52_low + 0.500 * w52_range, 2) if w52_range > 0 else None
+
+    # Relative position in 52W range (0=low, 1=high)
+    w52_pos = round((price - w52_low) / w52_range, 3) if w52_range > 0 else 0.5
+
+    # ADX approximation (trend strength via DI+/DI-)
+    def _adx(period: int = 14) -> float:
+        if len(highs) < period+1: return 20.0
+        dm_plus, dm_minus, trs = [], [], []
+        for i in range(1, len(closes)):
+            up   = highs[i]  - highs[i-1]
+            down = lows[i-1] - lows[i]
+            dm_plus.append(max(up, 0)   if up > down  else 0)
+            dm_minus.append(max(down,0) if down > up  else 0)
+            trs.append(max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1])))
+        atr14 = sum(trs[-period:]) / period
+        if atr14 == 0: return 20.0
+        di_p = (sum(dm_plus[-period:])  / period) / atr14 * 100
+        di_m = (sum(dm_minus[-period:]) / period) / atr14 * 100
+        dx   = abs(di_p - di_m) / (di_p + di_m) * 100 if (di_p+di_m) > 0 else 0
+        return round(dx, 1)
+
+    adx = _adx()
+
+    # Bollinger bandwidth (volatility squeeze indicator)
+    bb_mid = ma20 or price
+    if len(closes) >= 20:
+        std20 = (sum((c - sum(closes[-20:])/20)**2 for c in closes[-20:])/20)**0.5
+        bb_upper = bb_mid + 2*std20
+        bb_lower = bb_mid - 2*std20
+        bb_width_pct = round((bb_upper - bb_lower) / bb_mid * 100, 2)
+        bb_squeeze   = bb_width_pct < 4.0   # tight bands = potential breakout ahead
+        near_bb_lower = price <= bb_lower * 1.005
+    else:
+        bb_width_pct = 5.0; bb_squeeze = False; near_bb_lower = False
+
+    # 20-day price momentum %
+    mom20 = round((closes[-1] - closes[-21]) / closes[-21] * 100, 2) if len(closes) > 21 else 0.0
+
+    # ── Score each swing factor ───────────────────────────────────────────
+    factors: list[SwingFactor] = []
+
+    # 1. Trend alignment (MA structure)
+    ma_above = sum(1 for ma in [ma20, ma50, ma200] if ma and price > ma)
+    if ma_above == 3 and ma20 and ma50 and ma200 and ma20 > ma50 > ma200:
+        tr_sc = 0.95; tr_sig = "bullish"
+        tr_note = f"Perfect bull stack: Price ₹{price:.0f} > MA20 ₹{ma20:.0f} > MA50 ₹{ma50:.0f} > MA200 ₹{ma200:.0f}. Strong uptrend."
+    elif ma_above == 3:
+        tr_sc = 0.75; tr_sig = "bullish"
+        tr_note = f"Price above all 3 MAs — uptrend confirmed, MA stack not fully aligned."
+    elif ma_above == 2:
+        tr_sc = 0.40; tr_sig = "bullish"
+        tr_note = f"Price above MA20 & MA50 but below MA200 — medium-term trend positive."
+    elif ma_above == 1:
+        tr_sc = -0.30; tr_sig = "bearish"
+        tr_note = f"Price above only 1 MA — trend unclear, upside limited."
+    else:
+        tr_sc = -0.85; tr_sig = "bearish"
+        tr_note = f"Price ₹{price:.0f} below all MAs — downtrend intact. Avoid swing longs."
+    factors.append(SwingFactor(factor="Trend (MA Structure)", value=f"Above {ma_above}/3 MAs",
+                               score=tr_sc, weight=0.22, signal=tr_sig, note=tr_note))
+
+    # 2. RSI — swing sweet spot 40-65 (not overbought, has room to run)
+    if 42 <= rsi <= 62:
+        rs_sc = 0.85; rs_sig = "bullish"
+        rs_note = f"RSI {rsi:.1f} in ideal swing zone (42-62). Momentum is building with room to move higher."
+    elif 35 <= rsi < 42:
+        rs_sc = 0.55; rs_sig = "bullish"
+        rs_note = f"RSI {rsi:.1f} mildly oversold — potential mean-reversion bounce candidate."
+    elif 62 < rsi <= 72:
+        rs_sc = 0.20; rs_sig = "neutral"
+        rs_note = f"RSI {rsi:.1f} elevated — still running but limited upside before pullback."
+    elif rsi > 72:
+        rs_sc = -0.65; rs_sig = "bearish"
+        rs_note = f"RSI {rsi:.1f} overbought — high risk of short-term pullback. Wait for reset to 50-60."
+    else:
+        rs_sc = -0.55; rs_sig = "bearish"
+        rs_note = f"RSI {rsi:.1f} oversold — downtrend may persist. No swing long setup yet."
+    factors.append(SwingFactor(factor="RSI (14)", value=f"{rsi:.1f}",
+                               score=rs_sc, weight=0.16, signal=rs_sig, note=rs_note))
+
+    # 3. MACD crossover signal
+    if macd_val > macd_sig and macd_val > 0:
+        mc_sc = 0.90; mc_sig = "bullish"
+        mc_note = "MACD bullish crossover above zero — strong sustained momentum. Classic swing buy signal."
+    elif macd_val > macd_sig and macd_val <= 0:
+        mc_sc = 0.60; mc_sig = "bullish"
+        mc_note = "MACD crossed bullish below zero — early momentum recovery, watch for follow-through."
+    elif macd_val < macd_sig and macd_val > 0:
+        mc_sc = -0.40; mc_sig = "bearish"
+        mc_note = "MACD crossed bearish above zero — momentum fading. Avoid new longs."
+    else:
+        mc_sc = -0.85; mc_sig = "bearish"
+        mc_note = "MACD bearish below zero — strong downward momentum. Swing sell territory."
+    factors.append(SwingFactor(factor="MACD Signal", value=f"{macd_val:.3f} vs {macd_sig:.3f}",
+                               score=mc_sc, weight=0.17, signal=mc_sig, note=mc_note))
+
+    # 4. Fibonacci positioning
+    if fib382 and fib618:
+        if fib382 <= price <= fib618:
+            fb_sc = 0.80; fb_sig = "bullish"
+            fb_note = f"Price ₹{price:.0f} in Fib golden zone ({fib382}–{fib618}). High probability reversal zone."
+        elif price < fib382:
+            pct_below = round((fib382 - price) / fib382 * 100, 1)
+            fb_sc = -0.30; fb_sig = "bearish"
+            fb_note = f"Price {pct_below}% below Fib 38.2% (₹{fib382}) — deeper retracement, wait for stabilisation."
+        else:
+            pct_above = round((price - fib618) / fib618 * 100, 1)
+            if pct_above < 5:
+                fb_sc = 0.40; fb_sig = "neutral"
+                fb_note = f"Price just above Fib 61.8% (₹{fib618}) — minor breakout, watch for continuation."
+            else:
+                fb_sc = -0.20; fb_sig = "neutral"
+                fb_note = f"Price {pct_above}% above Fib 61.8% — extended, risk of reversion to golden zone."
+    else:
+        fb_sc = 0.0; fb_sig = "neutral"
+        fb_note = "Insufficient data to compute Fibonacci levels."
+    factors.append(SwingFactor(factor="Fibonacci Position", value=f"₹{price:.0f}",
+                               score=fb_sc, weight=0.14, signal=fb_sig, note=fb_note))
+
+    # 5. Volume confirmation
+    if vol_ratio >= 1.5 and macd_val > macd_sig:
+        vl_sc = 0.90; vl_sig = "bullish"
+        vl_note = f"Volume {vol_ratio:.1f}x avg with bullish MACD — institutional buying confirmed."
+    elif vol_ratio >= 1.3:
+        vl_sc = 0.55; vl_sig = "bullish"
+        vl_note = f"Volume {vol_ratio:.1f}x average — above-normal participation supports the move."
+    elif vol_ratio >= 0.8:
+        vl_sc = 0.0; vl_sig = "neutral"
+        vl_note = f"Volume {vol_ratio:.1f}x average — normal participation, no strong conviction signal."
+    else:
+        vl_sc = -0.50; vl_sig = "bearish"
+        vl_note = f"Volume {vol_ratio:.1f}x average — low participation. Move may not sustain."
+    factors.append(SwingFactor(factor="Volume Confirmation", value=f"{vol_ratio:.2f}x avg",
+                               score=vl_sc, weight=0.13, signal=vl_sig, note=vl_note))
+
+    # 6. ADX — trend strength (swing trades need a trending market, not range)
+    if adx >= 30:
+        ax_sc = 0.75; ax_sig = "bullish"
+        ax_note = f"ADX {adx:.0f} — strong trend. Swing trades have a clear directional bias."
+    elif adx >= 20:
+        ax_sc = 0.35; ax_sig = "neutral"
+        ax_note = f"ADX {adx:.0f} — moderate trend strength. Swing trade viable but less conviction."
+    else:
+        ax_sc = -0.40; ax_sig = "neutral"
+        ax_note = f"ADX {adx:.0f} — weak trend (ranging market). Swing trades are risky; prefer breakout confirmation."
+    factors.append(SwingFactor(factor="Trend Strength (ADX)", value=f"{adx:.0f}",
+                               score=ax_sc, weight=0.10, signal=ax_sig, note=ax_note))
+
+    # 7. 52-week range position
+    if 0.30 <= w52_pos <= 0.70:
+        rp_sc = 0.60; rp_sig = "bullish"
+        rp_note = f"Price at {w52_pos*100:.0f}% of 52W range — mid-range setup, good swing potential in both directions."
+    elif w52_pos < 0.25:
+        rp_sc = 0.30; rp_sig = "neutral"
+        rp_note = f"Price near 52W low ({w52_pos*100:.0f}%) — potential value/reversal zone but trend is bearish."
+    elif w52_pos > 0.85:
+        rp_sc = -0.35; rp_sig = "bearish"
+        rp_note = f"Price near 52W high ({w52_pos*100:.0f}%) — breakout or blow-off top risk. Late entry."
+    else:
+        rp_sc = 0.10; rp_sig = "neutral"
+        rp_note = f"Price at {w52_pos*100:.0f}% of 52W range."
+    factors.append(SwingFactor(factor="52W Range Position", value=f"{w52_pos*100:.0f}%",
+                               score=rp_sc, weight=0.08, signal=rp_sig, note=rp_note))
+
+    # ── Composite score ───────────────────────────────────────────────────
+    total_w   = sum(f.weight for f in factors)
+    composite = round(sum(f.score * f.weight * 100 for f in factors) / total_w, 1)
+
+    # ── Probability estimate (logistic-style from composite) ──────────────
+    # Calibrated: composite +60 ≈ 72% win, composite 0 ≈ 50%, composite -60 ≈ 28%
+    import math
+    probability_pct = round(100 / (1 + math.exp(-composite / 35)), 1)
+
+    # ── Entry / Target / Stop (ATR-based, swing-appropriate) ─────────────
+    entry_price = round(price, 2)
+
+    # Swing target: 2.5× ATR above entry (wider than BTST)
+    target_mult = 2.5 if composite >= 40 else 2.0 if composite >= 10 else 1.5
+    target_price = round(entry_price + atr * target_mult, 2)
+
+    # Stop: 1× ATR below entry (or just below Fib 38.2% if in zone)
+    if fib382 and fib382 < price:
+        stop_loss = round(min(entry_price - atr, fib382 * 0.997), 2)
+    else:
+        stop_loss = round(entry_price - atr, 2)
+
+    risk   = entry_price - stop_loss
+    reward = target_price - entry_price
+    rr     = round(reward / risk, 2) if risk > 0 else 0.0
+
+    # Hold days
+    if composite >= 55:
+        hold_days = "10-20 days"
+    elif composite >= 20:
+        hold_days = "5-15 days"
+    elif composite >= -20:
+        hold_days = "3-7 days"
+    else:
+        hold_days = "Avoid / short only"
+
+    # ── Verdict ───────────────────────────────────────────────────────────
+    if composite >= 55:   verdict = "Strong Swing Buy"
+    elif composite >= 20: verdict = "Swing Buy"
+    elif composite >= -20:verdict = "Neutral"
+    elif composite >= -55:verdict = "Swing Sell"
+    else:                 verdict = "Strong Swing Sell"
+
+    confidence_pct = round(min(45 + abs(composite) * 0.5, 94), 1)
+
+    # ── Why buy / Why risk bullets ────────────────────────────────────────
+    why_buy  = [f.note for f in factors if f.score >= 0.5]
+    why_risk = [f.note for f in factors if f.score <= -0.4]
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    summary = (
+        f"{verdict} setup for {name} ({ticker}). "
+        f"Composite score {composite:+.0f}/100, estimated win probability {probability_pct:.0f}%. "
+        f"Entry ₹{entry_price}, target ₹{target_price} (+{reward/entry_price*100:.1f}%), "
+        f"stop ₹{stop_loss} (-{risk/entry_price*100:.1f}%), R:R = 1:{rr:.1f}. "
+        f"Suggested hold: {hold_days}. "
+    )
+    if why_buy:
+        summary += f"Key positives: {'; '.join(why_buy[:2][:120])}. "
+    if why_risk:
+        summary += f"Key risks: {'; '.join(why_risk[:1][:80])}. "
+    summary += "This is not financial advice."
+
+    # Price history for sparkline (last 60 bars)
+    price_history = []
+    for i, (idx, row) in enumerate(hist.tail(60).iterrows()):
+        price_history.append({
+            "date":  str(idx.date()),
+            "open":  round(float(row["Open"]),  2),
+            "high":  round(float(row["High"]),  2),
+            "low":   round(float(row["Low"]),   2),
+            "close": round(float(row["Close"]), 2),
+            "volume": int(row["Volume"]),
+        })
+
+    result = SwingResponse(
+        ticker=ticker, name=name, verdict=verdict,
+        confidence_pct=confidence_pct, composite_score=composite,
+        entry_price=entry_price, target_price=target_price,
+        stop_loss=stop_loss, risk_reward=rr,
+        hold_days=hold_days, probability_pct=probability_pct,
+        factors=factors, why_buy=why_buy, why_risk=why_risk,
+        summary=summary, fib_382=fib382, fib_618=fib618,
+        week52_high=w52_high, week52_low=w52_low,
+        price_history=price_history,
+        generated_at=datetime.now(_tz.utc).isoformat(),
+    )
+    cache.set(f"swing:{ticker}", result, ttl=3600)
+    return result
+
+
 # ── CHART DATA (multi-timeframe, all indicators) ──────────────────────────
 #
 # GET /api/chart/{ticker}?interval=1d|1wk|1mo
@@ -2001,6 +2340,35 @@ async def get_chart_data(
     st_vals, st_bull = _compute_supertrend_series(highs, lows, closes)
     morning_star = _detect_morning_star(opens, highs, lows, closes)
 
+    # ── Fibonacci Retracement (rolling 50-bar lookback) ───────────────────
+    fib_lookback = 50
+    fib382_series: list[float | None] = []
+    fib618_series: list[float | None] = []
+    fib_signal_series: list[str | None] = []   # 'long' | 'short' | None
+    for i in range(len(closes)):
+        if i < fib_lookback - 1:
+            fib382_series.append(None)
+            fib618_series.append(None)
+            fib_signal_series.append(None)
+            continue
+        window_h = highs[i - fib_lookback + 1: i + 1]
+        window_l = lows[i  - fib_lookback + 1: i + 1]
+        swing_hi = max(window_h)
+        swing_lo = min(window_l)
+        diff_fib = swing_hi - swing_lo
+        f382 = round(swing_lo + 0.382 * diff_fib, 2)
+        f618 = round(swing_lo + 0.618 * diff_fib, 2)
+        fib382_series.append(f382)
+        fib618_series.append(f618)
+        # Signal: price in golden zone (38.2–61.8%) AND Supertrend confirms
+        in_zone = f382 <= closes[i] <= f618
+        if in_zone and st_bull[i]:
+            fib_signal_series.append('long')
+        elif in_zone and not st_bull[i]:
+            fib_signal_series.append('short')
+        else:
+            fib_signal_series.append(None)
+
     # ── Session-reset VWAP (resets at start of each trading day) ──────────
     if intraday:
         vwap = _compute_session_vwap(hist, highs, lows, closes, volumes)
@@ -2042,6 +2410,10 @@ async def get_chart_data(
             "macd_hist":     macd_h[i],
             # Patterns
             "morning_star":  morning_star[i],
+            # Fib + Supertrend strategy
+            "fib_382":       fib382_series[i],
+            "fib_618":       fib618_series[i],
+            "fib_signal":    fib_signal_series[i],
         }
         # ORB fields (intraday only)
         if orb_data[i] is not None:

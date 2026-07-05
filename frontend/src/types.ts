@@ -263,10 +263,64 @@ export interface ChatMessage {
 export interface ChatRequest {
   question: string
   messages: ChatMessage[]
+  strategies?: string   // user's saved strategy summaries for context
 }
 
 export interface ChatResponse {
   answer: string
   ticker: string
   generated_at: string
+}
+
+// ── Pine Script Strategies ────────────────────────────────────────────────────
+
+export interface PineStrategy {
+  id: string
+  name: string
+  description: string
+  script: string
+  is_builtin: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PineStrategyIn {
+  name: string
+  description: string
+  script: string
+}
+
+// ── Swing Trade Analyser ──────────────────────────────────────────────────────
+
+export interface SwingFactor {
+  factor:  string
+  value:   string
+  score:   number
+  weight:  number
+  signal:  'bullish' | 'bearish' | 'neutral'
+  note:    string
+}
+
+export interface SwingResponse {
+  ticker:          string
+  name:            string
+  verdict:         'Strong Swing Buy' | 'Swing Buy' | 'Neutral' | 'Swing Sell' | 'Strong Swing Sell'
+  confidence_pct:  number
+  composite_score: number
+  entry_price:     number
+  target_price:    number
+  stop_loss:       number
+  risk_reward:     number
+  hold_days:       string
+  probability_pct: number
+  factors:         SwingFactor[]
+  why_buy:         string[]
+  why_risk:        string[]
+  summary:         string
+  fib_382:         number | null
+  fib_618:         number | null
+  week52_high:     number | null
+  week52_low:      number | null
+  price_history:   { date: string; open: number; high: number; low: number; close: number; volume: number }[]
+  generated_at:    string
 }

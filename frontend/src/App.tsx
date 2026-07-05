@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Component, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { StockSearch } from './components/StockSearch'
 import { QuoteHeader } from './components/QuoteHeader'
 import { FundamentalsPanel } from './components/FundamentalsPanel'
@@ -19,6 +20,65 @@ import { AuthPage } from './components/AuthPage'
 import { PaperTradesPanel } from './components/PaperTradesPanel'
 import { Logo } from './components/Logo'
 import { ORBScannerPanel } from './components/ORBScannerPanel'
+import { PineScriptPanel } from './components/PineScriptPanel'
+import { SwingPanel } from './components/SwingPanel'
+import { SwingSearchWidget } from './components/SwingSearchWidget'
+import { getRecommendation, getSwing } from './api'
+
+// ── Buy/Sell badge shown inline on the section header ─────────────────────
+const SIGNAL_STYLE: Record<string, string> = {
+  'Strong Buy':  'bg-emerald-900 text-emerald-300 border-emerald-600',
+  'Buy':         'bg-emerald-950 text-emerald-400 border-emerald-700',
+  'Hold':        'bg-gray-800    text-gray-400    border-gray-600',
+  'Sell':        'bg-red-950     text-red-400     border-red-700',
+  'Strong Sell': 'bg-red-900     text-red-300     border-red-600',
+}
+
+function SignalBadge({ ticker }: { ticker: string }) {
+  const { data } = useQuery({
+    queryKey: ['recommendation', ticker],
+    queryFn:  () => getRecommendation(ticker),
+    enabled:  !!ticker,
+    staleTime: 5 * 60_000,
+  })
+  if (!data) return null
+  const style = SIGNAL_STYLE[data.recommendation] ?? SIGNAL_STYLE['Hold']
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${style}`}>
+      {data.recommendation === 'Strong Buy' || data.recommendation === 'Buy' ? '▲' :
+       data.recommendation === 'Strong Sell' || data.recommendation === 'Sell' ? '▼' : '—'}
+      {data.recommendation}
+      <span className="text-[10px] opacity-70 font-normal">{data.confidence_pct.toFixed(0)}%</span>
+    </span>
+  )
+}
+
+// ── Swing badge shown inline on the Swing Trade section header ────────────
+const SWING_STYLE: Record<string, string> = {
+  'Strong Swing Buy':  'bg-emerald-900 text-emerald-300 border-emerald-600',
+  'Swing Buy':         'bg-emerald-950 text-emerald-400 border-emerald-700',
+  'Neutral':           'bg-gray-800    text-gray-400    border-gray-600',
+  'Swing Sell':        'bg-red-950     text-red-400     border-red-700',
+  'Strong Swing Sell': 'bg-red-900     text-red-300     border-red-600',
+}
+
+function SwingBadge({ ticker }: { ticker: string }) {
+  const { data } = useQuery({
+    queryKey: ['swing', ticker],
+    queryFn:  () => getSwing(ticker),
+    enabled:  !!ticker,
+    staleTime: 60 * 60_000,
+  })
+  if (!data) return null
+  const style = SWING_STYLE[data.verdict] ?? SWING_STYLE['Neutral']
+  const arrow = data.verdict.includes('Buy') ? '▲' : data.verdict.includes('Sell') ? '▼' : '—'
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${style}`}>
+      {arrow} {data.verdict}
+      <span className="text-[10px] opacity-70 font-normal">{data.probability_pct.toFixed(0)}% prob</span>
+    </span>
+  )
+}
 
 // ── Per-panel error boundary ──────────────────────────────────────────────
 class PanelBoundary extends Component<{ children: ReactNode; name: string }, { err: boolean }> {
@@ -34,9 +94,63 @@ class PanelBoundary extends Component<{ children: ReactNode; name: string }, { e
   }
 }
 
-const LS_LAST    = 'ta_last_ticker'
-const LS_FAVS    = 'ta_favourites'
-const MAX_FAVS   = 12
+const LS_LAST     = 'ta_last_ticker'
+const LS_FAVS     = 'ta_favourites'
+const LS_SECTIONS = 'ta_sections_open'
+const MAX_FAVS    = 12
+
+// ── Section definitions (order = display order) ───────────────────────────
+const SECTIONS = [
+  { key: 'chart',          label: '📈 Chart',          defaultOpen: true  },
+  { key: 'recommendation', label: '🎯 Signal',         defaultOpen: true  },
+  { key: 'swing',          label: '🔄 Swing Trade',    defaultOpen: true  },
+  { key: 'fundamentals',   label: '🏦 Fundamentals',   defaultOpen: true  },
+  { key: 'valuation',      label: '⚖️ Valuation',      defaultOpen: false },
+  { key: 'cashflow',       label: '💸 Cash Flow',      defaultOpen: false },
+  { key: 'holdings',       label: '🏛️ Holdings',       defaultOpen: false },
+  { key: 'btst',           label: '⚡ BTST',            defaultOpen: false },
+  { key: 'technical',      label: '🔬 Technical',      defaultOpen: false },
+  { key: 'insights',       label: '🤖 AI Insights',    defaultOpen: false },
+  { key: 'screener',       label: '🔍 Screener',       defaultOpen: false },
+  { key: 'strategies',     label: '📜 Strategies',     defaultOpen: false },
+] as const
+
+type SectionKey = typeof SECTIONS[number]['key']
+
+function loadSections(): Record<SectionKey, boolean> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_SECTIONS) ?? '{}')
+    const defaults = Object.fromEntries(SECTIONS.map(s => [s.key, s.defaultOpen])) as Record<SectionKey, boolean>
+    return { ...defaults, ...saved }
+  } catch {
+    return Object.fromEntries(SECTIONS.map(s => [s.key, s.defaultOpen])) as Record<SectionKey, boolean>
+  }
+}
+function saveSections(s: Record<SectionKey, boolean>) {
+  try { localStorage.setItem(LS_SECTIONS, JSON.stringify(s)) } catch {}
+}
+
+// ── Collapsible section wrapper ───────────────────────────────────────────
+function Section({ label, open, onToggle, badge, children }: {
+  label: string; open: boolean; onToggle: () => void
+  badge?: ReactNode; children: ReactNode
+}) {
+  return (
+    <div className="rounded-xl border border-gray-800 overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900 hover:bg-gray-800/80 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-gray-200">{label}</span>
+          {badge}
+        </div>
+        <span className={`text-gray-500 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && <div className="bg-gray-950">{children}</div>}
+    </div>
+  )
+}
 
 // Known renamed tickers — auto-redirect localStorage to new symbol
 const TICKER_ALIASES: Record<string, string> = {
@@ -71,13 +185,31 @@ export default function App() {
     const raw = loadLast()
     return resolveAlias(raw).renamed
   })
+  const [open, setOpen] = useState<Record<SectionKey, boolean>>(loadSections)
 
-  // All hooks must run unconditionally before any early return
   useEffect(() => {
     if (ticker) {
       try { localStorage.setItem(LS_LAST, ticker) } catch {}
     }
   }, [ticker])
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    setOpen(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      saveSections(next)
+      return next
+    })
+  }, [])
+
+  const expandAll = useCallback(() => {
+    const next = Object.fromEntries(SECTIONS.map(s => [s.key, true])) as Record<SectionKey, boolean>
+    setOpen(next); saveSections(next)
+  }, [])
+
+  const collapseAll = useCallback(() => {
+    const next = Object.fromEntries(SECTIONS.map(s => [s.key, false])) as Record<SectionKey, boolean>
+    setOpen(next); saveSections(next)
+  }, [])
 
   const handleSelect = useCallback((t: string, name?: string) => {
     setTicker(t)
@@ -194,6 +326,11 @@ export default function App() {
             </p>
             <p className="text-xs text-gray-600 mt-1">Use NSE format: <span className="text-brand-500 font-mono">RELIANCE.NS</span> · <span className="text-brand-500 font-mono">TCS.NS</span></p>
 
+            {/* ── Swing Trade Analyser ─────────────────────────────── */}
+            <div className="mt-10 w-full max-w-2xl">
+              <SwingSearchWidget onSelectTicker={handleSelect} />
+            </div>
+
             {/* Favourites section */}
             {favs.length > 0 && (
               <div className="mt-10 w-full max-w-lg">
@@ -262,24 +399,96 @@ export default function App() {
                 <button onClick={() => setRenamedFrom(null)} className="text-amber-500 hover:text-amber-300 text-lg leading-none shrink-0">×</button>
               </div>
             )}
-            <PanelBoundary name="Chart"><ChartPanel ticker={ticker} /></PanelBoundary>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="xl:col-span-2"><PanelBoundary name="Fundamentals"><FundamentalsPanel ticker={ticker} /></PanelBoundary></div>
-              <div className="xl:col-span-1"><PanelBoundary name="Financials"><ProfitRevenuePanel ticker={ticker} /></PanelBoundary></div>
+
+            {/* ── Section toggle bar ───────────────────────────────────── */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-600 font-semibold uppercase tracking-wide shrink-0 mr-1">Sections</span>
+                {SECTIONS.map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => toggleSection(s.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
+                      open[s.key]
+                        ? 'bg-brand-700/30 text-brand-300 border-brand-700'
+                        : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+                <div className="ml-auto flex gap-1.5 shrink-0">
+                  <button onClick={expandAll}    className="text-xs text-gray-600 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors">All ▼</button>
+                  <button onClick={collapseAll}  className="text-xs text-gray-600 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors">All ▲</button>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <PanelBoundary name="Valuation"><ValuationPanel ticker={ticker} /></PanelBoundary>
-              <PanelBoundary name="CashFlow"><CashFlowPanel ticker={ticker} /></PanelBoundary>
+
+            {/* ── Collapsible sections ─────────────────────────────────── */}
+            <div className="space-y-2">
+
+              <Section label="📈 Chart" open={open.chart} onToggle={() => toggleSection('chart')}>
+                <PanelBoundary name="Chart"><ChartPanel ticker={ticker} /></PanelBoundary>
+              </Section>
+
+              <Section label="🎯 Signal" open={open.recommendation} onToggle={() => toggleSection('recommendation')}
+                badge={<SignalBadge ticker={ticker} />}>
+                <PanelBoundary name="Recommendation"><RecommendationPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
+              </Section>
+
+              <Section label="🔄 Swing Trade" open={open.swing} onToggle={() => toggleSection('swing')}
+                badge={<SwingBadge ticker={ticker} />}>
+                <PanelBoundary name="Swing"><SwingPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
+              </Section>
+
+              <Section label="🏦 Fundamentals" open={open.fundamentals} onToggle={() => toggleSection('fundamentals')}>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 p-3">
+                  <div className="xl:col-span-2"><PanelBoundary name="Fundamentals"><FundamentalsPanel ticker={ticker} /></PanelBoundary></div>
+                  <div className="xl:col-span-1"><PanelBoundary name="ProfitRevenue"><ProfitRevenuePanel ticker={ticker} /></PanelBoundary></div>
+                </div>
+              </Section>
+
+              <Section label="⚖️ Valuation" open={open.valuation} onToggle={() => toggleSection('valuation')}>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-3">
+                  <PanelBoundary name="Valuation"><ValuationPanel ticker={ticker} /></PanelBoundary>
+                  <PanelBoundary name="CashFlow"><CashFlowPanel ticker={ticker} /></PanelBoundary>
+                </div>
+              </Section>
+
+              <Section label="💸 Cash Flow" open={open.cashflow} onToggle={() => toggleSection('cashflow')}>
+                <PanelBoundary name="CashFlow-s"><CashFlowPanel ticker={ticker} /></PanelBoundary>
+              </Section>
+
+              <Section label="🏛️ Holdings" open={open.holdings} onToggle={() => toggleSection('holdings')}>
+                <PanelBoundary name="Holdings"><HoldingsPanel ticker={ticker} /></PanelBoundary>
+              </Section>
+
+              <Section label="⚡ BTST" open={open.btst} onToggle={() => toggleSection('btst')}>
+                <PanelBoundary name="BTST"><BTSTPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
+              </Section>
+
+              <Section label="🔬 Technical" open={open.technical} onToggle={() => toggleSection('technical')}>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-3">
+                  <PanelBoundary name="Technical"><TechnicalPanel ticker={ticker} /></PanelBoundary>
+                  <PanelBoundary name="Trend"><TrendPanel ticker={ticker} /></PanelBoundary>
+                </div>
+              </Section>
+
+              <Section label="🤖 AI Insights" open={open.insights} onToggle={() => toggleSection('insights')}>
+                <PanelBoundary name="AI Insights"><AIInsightsPanel ticker={ticker} /></PanelBoundary>
+              </Section>
+
+              <Section label="🔍 Screener" open={open.screener} onToggle={() => toggleSection('screener')}>
+                <PanelBoundary name="Screener"><ScreenerPanel ticker={ticker} onSelect={handleSelect} /></PanelBoundary>
+              </Section>
+
+              <Section label="📜 Pine Script Strategies" open={open.strategies} onToggle={() => toggleSection('strategies')}>
+                <PanelBoundary name="Strategies">
+                  <PineScriptPanel ticker={ticker} onClose={() => toggleSection('strategies')} />
+                </PanelBoundary>
+              </Section>
+
             </div>
-            <PanelBoundary name="Holdings"><HoldingsPanel ticker={ticker} /></PanelBoundary>
-            <PanelBoundary name="AI Insights"><AIInsightsPanel ticker={ticker} /></PanelBoundary>
-            <PanelBoundary name="Recommendation"><RecommendationPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
-            <PanelBoundary name="BTST"><BTSTPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <PanelBoundary name="Technical"><TechnicalPanel ticker={ticker} /></PanelBoundary>
-              <PanelBoundary name="Trend"><TrendPanel ticker={ticker} /></PanelBoundary>
-            </div>
-            <PanelBoundary name="Screener"><ScreenerPanel ticker={ticker} onSelect={handleSelect} /></PanelBoundary>
           </>
         )}
       </main>

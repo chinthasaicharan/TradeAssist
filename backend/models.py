@@ -271,3 +271,37 @@ class BTSTResponse(BaseModel):
     summary: str
     price_history_5d: list[dict]      # {date, open, high, low, close, volume}
     generated_at: str
+
+# ── SWING TRADE ANALYSER ───────────────────────────────────────────────────
+
+class SwingFactor(BaseModel):
+    factor:      str
+    value:       str
+    score:       float          # -1.0 to +1.0
+    weight:      float
+    signal:      Literal["bullish", "bearish", "neutral"]
+    note:        str
+
+
+class SwingResponse(BaseModel):
+    ticker:          str
+    name:            str
+    verdict:         Literal["Strong Swing Buy", "Swing Buy", "Neutral", "Swing Sell", "Strong Swing Sell"]
+    confidence_pct:  float          # 0-100
+    composite_score: float          # -100 to +100
+    entry_price:     float
+    target_price:    float
+    stop_loss:       float
+    risk_reward:     float
+    hold_days:       str            # e.g. "5-15 days"
+    probability_pct: float          # win probability estimate
+    factors:         list[SwingFactor]
+    why_buy:         list[str]      # bullet reasons supporting entry
+    why_risk:        list[str]      # bullet risks / reasons to be cautious
+    summary:         str
+    fib_382:         float | None
+    fib_618:         float | None
+    week52_high:     float | None
+    week52_low:      float | None
+    price_history:   list[dict]     # last 60 daily bars for sparkline
+    generated_at:    str

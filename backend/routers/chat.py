@@ -57,6 +57,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     messages: list[ChatMessage] = []   # prior conversation turns
+    strategies: str | None = None      # user's saved strategy summaries
 
 
 class ChatResponse(BaseModel):
@@ -223,7 +224,7 @@ async def _gather_stock_context(ticker: str) -> dict:
 
 # ── System prompt builder ──────────────────────────────────────────────────
 
-def _build_system_prompt(ticker: str, ctx: dict) -> str:
+def _build_system_prompt(ticker: str, ctx: dict, strategies: str | None = None) -> str:
     sym  = ctx.get("currency", "INR") == "INR" and "Rs." or "$"
     name = ctx.get("name", ticker)
     parts = [
@@ -232,8 +233,19 @@ def _build_system_prompt(ticker: str, ctx: dict) -> str:
         f"Answer in plain, direct language. Use bullet points for lists. Keep responses under 200 words unless the user asks for detail.",
         f"Always cite specific numbers when available. Never give generic advice — anchor every claim to the actual data below.",
         f"Add a brief disclaimer at the end of prediction/buy-sell answers: 'This is not financial advice.'",
-        f"\n--- STOCK DATA FOR {ticker} ---",
     ]
+
+    # ── Inject user strategies into the system prompt ─────────────────────
+    if strategies and strategies.strip():
+        parts.append(
+            f"\n--- USER'S SAVED TRADING STRATEGIES ---\n"
+            f"The user has the following strategies saved in TradeAssist. "
+            f"When they ask to 'apply my strategy', 'check my criteria', or reference a strategy by name, "
+            f"evaluate the stock's current data against these strategy rules and give a clear verdict.\n"
+            f"{strategies.strip()}"
+        )
+
+    parts.append(f"\n--- STOCK DATA FOR {ticker} ---")
 
     if ctx.get("price"):
         parts.append(f"Current Price: Rs.{ctx['price']}")
@@ -312,9 +324,29 @@ def _build_system_prompt(ticker: str, ctx: dict) -> str:
 
 # ── Rule-based fallback answerer ───────────────────────────────────────────
 
-def _rule_based_answer(question: str, ticker: str, ctx: dict) -> str:
+def _rule_based_answer(question: str, ticker: str, ctx: dict, strategies: str | None = None) -> str:
     q = question.lower()
     name = ctx.get("name", ticker)
+
+    # Strategy evaluation
+    if strategies and any(w in q for w in ["strategy", "criteria", "fibonacci", "supertrend", "apply my", "my strategy", "signal", "setup"]):
+        rsi = ctx.get("rsi", 50)
+        ma_bias = ctx.get("ma_bias", "")
+        price = ctx.get("price") or ctx.get("tech_price")
+        support = ctx.get("support")
+        resistance = ctx.get("resistance")
+        lines = [f"**Strategy check for {name} ({ticker}):**"]
+        lines.append(f"\n*Your saved strategies:*\n{strategies}")
+        lines.append(f"\n*Current stock data:*")
+        if price:      lines.append(f"- Price: Rs.{price}")
+        if rsi:        lines.append(f"- RSI: {rsi:.1f} ({'oversold' if rsi < 30 else 'overbought' if rsi > 70 else 'neutral'})")
+        if ma_bias:    lines.append(f"- MA Bias: {ma_bias}")
+        if support:    lines.append(f"- 20d Support: Rs.{support}")
+        if resistance: lines.append(f"- 20d Resistance: Rs.{resistance}")
+        if ctx.get("golden_cross"): lines.append("- Golden Cross: active ✓")
+        if ctx.get("death_cross"):  lines.append("- Death Cross: active ✗")
+        lines.append("\n*This is not financial advice. Enable AI (set OPENAI_API_KEY or GEMINI_API_KEY) for a full strategy evaluation.*")
+        return "\n".join(lines)
 
     # Price
     if any(w in q for w in ["price", "trading at", "current", "rate", "value now"]):
@@ -510,12 +542,12 @@ async def chat(ticker: str, body: ChatRequest, request: Request):
     if not ctx:
         raise HTTPException(status_code=404, detail=f"No data found for {ticker}. Use NSE format e.g. RELIANCE.NS")
 
-    system_prompt = _build_system_prompt(ticker, ctx)
+    system_prompt = _build_system_prompt(ticker, ctx, strategies=body.strategies)
 
     # Try AI first; fall back to rule-based
     answer = await _call_ai(system_prompt, body.messages, question)
     if not answer:
-        answer = _rule_based_answer(question, ticker, ctx)
+        answer = _rule_based_answer(question, ticker, ctx, strategies=body.strategies)
 
     return ChatResponse(
         answer=answer,

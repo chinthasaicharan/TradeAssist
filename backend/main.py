@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
-from routers import search, market, insights, chat, trades
+from routers import search, market, insights, chat, trades, strategies
 from routers.auth import router as auth_router
 from database import init_db
 
@@ -54,6 +54,7 @@ app.include_router(market.router)
 app.include_router(insights.router)
 app.include_router(chat.router)
 app.include_router(trades.router)
+app.include_router(strategies.router)
 
 
 @app.get("/health")

@@ -161,16 +161,28 @@ export function ORBScannerPanel({ onSelectTicker }: Props) {
   const [interval, setInterval] = useState<Interval>('15m')
   const [customTickers, setCustomTickers] = useState<string[]>([])
   const [useCustom, setUseCustom] = useState(false)
+  const [hasScanned, setHasScanned] = useState(false)
 
   const tickersParam = useCustom && customTickers.length > 0 ? customTickers.join(',') : ''
+
+  // Only fetch after the user explicitly clicks Scan
+  const canFetch = hasScanned && (!useCustom || customTickers.length > 0)
 
   const { data, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['orb-scanner', interval, tickersParam],
     queryFn: () => getOrbScanner(interval, tickersParam || undefined),
     staleTime: 3 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    enabled: !useCustom || customTickers.length > 0,
+    refetchInterval: false,   // no auto-refresh; user controls this
+    enabled: canFetch,
   })
+
+  const handleScan = () => {
+    if (!hasScanned) {
+      setHasScanned(true)   // triggers the query for the first time
+    } else {
+      refetch()             // subsequent clicks just refetch
+    }
+  }
 
   const breakouts: ORBResult[] = data?.breakouts ?? []
   const bullish = breakouts.filter(b => b.breakout === 'bullish')
@@ -195,9 +207,9 @@ export function ORBScannerPanel({ onSelectTicker }: Props) {
               }`}>{INTERVAL_LABELS[i]}</button>
           ))}
           <button
-            onClick={() => refetch()} disabled={isFetching}
-            className="px-3 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors disabled:opacity-50"
-          >{isFetching ? '⟳ Scanning…' : '⟳ Refresh'}</button>
+            onClick={handleScan} disabled={isFetching || (useCustom && customTickers.length === 0)}
+            className="px-3 py-1 rounded text-xs bg-brand-700 hover:bg-brand-600 text-white border border-brand-600 transition-colors disabled:opacity-50 font-semibold"
+          >{isFetching ? '⟳ Scanning…' : hasScanned ? '⟳ Refresh' : '▶ Scan'}</button>
         </div>
       </div>
 
@@ -244,6 +256,14 @@ export function ORBScannerPanel({ onSelectTicker }: Props) {
         <div className="text-center py-8">
           <p className="text-gray-500 text-sm">No ORB breakouts found</p>
           <p className="text-gray-600 text-xs mt-1">Market may be closed or no stocks have crossed their opening range</p>
+        </div>
+      )}
+
+      {/* Pre-scan prompt */}
+      {!hasScanned && (
+        <div className="text-center py-8 space-y-3">
+          <p className="text-gray-500 text-sm">Click <span className="text-white font-semibold">▶ Scan</span> to detect ORB breakouts</p>
+          <p className="text-gray-600 text-xs">Scans Nifty 50 by default · switch to a custom watchlist above</p>
         </div>
       )}
 

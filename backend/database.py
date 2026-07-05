@@ -56,4 +56,18 @@ def init_db() -> None:
         except Exception:
             pass  # column already exists
 
+        # ── Pine Script Strategies (user-scoped) ──────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pine_strategies (
+                id           TEXT PRIMARY KEY,
+                user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name         TEXT NOT NULL,
+                description  TEXT NOT NULL DEFAULT '',
+                script       TEXT NOT NULL,
+                is_builtin   INTEGER NOT NULL DEFAULT 0,
+                created_at   TEXT NOT NULL,
+                updated_at   TEXT NOT NULL
+            )
+        """)
+
         conn.commit()

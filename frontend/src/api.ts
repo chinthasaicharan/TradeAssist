@@ -5,6 +5,7 @@ import type {
   ScreenerResponse, InsightsResponse,
   ValuationResponse, CashFlowResponse, RecommendationResponse,
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
+  PineStrategy, PineStrategyIn, SwingResponse,
 } from './types'
 
 export const TOKEN_KEY = 'ta_token'
@@ -88,3 +89,25 @@ export const getChartData = (ticker: string, interval: '5m' | '15m' | '30m' | '1
 
 export const getOrbScanner = (interval: '5m' | '15m' | '30m', tickers?: string) =>
   api.get<any>('/orb-scanner', { params: { interval, tickers: tickers ?? '' } }).then(r => r.data)
+
+// ── Pine Script Strategies ────────────────────────────────────────────────────
+
+export const getStrategies = () =>
+  api.get<PineStrategy[]>('/strategies').then(r => r.data)
+
+export const createStrategy = (body: PineStrategyIn) =>
+  api.post<PineStrategy>('/strategies', body).then(r => r.data)
+
+export const updateStrategy = (id: string, body: PineStrategyIn) =>
+  api.put<PineStrategy>(`/strategies/${id}`, body).then(r => r.data)
+
+export const deleteStrategy = (id: string) =>
+  api.delete(`/strategies/${id}`)
+
+export const forkStrategy = (id: string) =>
+  api.post<PineStrategy>(`/strategies/${id}/fork`).then(r => r.data)
+
+// ── Swing Trade Analyser ──────────────────────────────────────────────────────
+
+export const getSwing = (ticker: string) =>
+  api.get<SwingResponse>(`/swing/${ticker}`).then(r => r.data)
