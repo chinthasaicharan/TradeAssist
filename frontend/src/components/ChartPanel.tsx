@@ -148,7 +148,7 @@ function ChartInner({ ticker }: Props) {
             price: l.price,
             color: l.strength === 'strong' ? '#10b981' : '#f59e0b',
             lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: l.strength,
-          })
+          } as any)
         } catch {}
       })
     }
@@ -173,7 +173,7 @@ function ChartInner({ ticker }: Props) {
         const s = pc.addSeries(LineSeries, {
           color, lineWidth: lw, lineStyle: dash ? 2 : 0,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-        })
+        } as any)
         const pts = bars.filter((d: any) => d[field] != null)
           .map((d: any) => ({ time: d.date as Time, value: d[field] as number }))
         if (pts.length) s.setData(pts)
@@ -199,12 +199,12 @@ function ChartInner({ ticker }: Props) {
           color: '#a78bfa', lineWidth: 2, lineStyle: 0,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
           title: 'ORB H',
-        })
+        } as any)
         const orbLow = pc.addSeries(LineSeries, {
           color: '#a78bfa', lineWidth: 2, lineStyle: 2,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
           title: 'ORB L',
-        })
+        } as any)
         const orbHPts = bars.filter((d: any) => d.orb_high != null)
           .map((d: any) => ({ time: d.date as Time, value: d.orb_high as number }))
         const orbLPts = bars.filter((d: any) => d.orb_low != null)
@@ -215,8 +215,8 @@ function ChartInner({ ticker }: Props) {
     }
     if (active.has('supertrend')) {
       try {
-        const bull = pc.addSeries(LineSeries, { color: COLORS.bull, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
-        const bear = pc.addSeries(LineSeries, { color: COLORS.bear, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
+        const bull = pc.addSeries(LineSeries, { color: COLORS.bull, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false } as any)
+        const bear = pc.addSeries(LineSeries, { color: COLORS.bear, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false } as any)
         const bPts = bars.filter((d: any) => d.st_bull  && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
         const rPts = bars.filter((d: any) => !d.st_bull && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
         if (bPts.length) bull.setData(bPts)
@@ -232,7 +232,7 @@ function ChartInner({ ticker }: Props) {
           color: '#a3e635', lineWidth: 1, lineStyle: 2,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
           title: 'Fib 61.8%',
-        })
+        } as any)
         const f618pts = bars.filter((d: any) => d.fib_618 != null)
           .map((d: any) => ({ time: d.date as Time, value: d.fib_618 as number }))
         if (f618pts.length) fib618Line.setData(f618pts)
@@ -242,7 +242,7 @@ function ChartInner({ ticker }: Props) {
           color: '#facc15', lineWidth: 1, lineStyle: 2,
           priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
           title: 'Fib 38.2%',
-        })
+        } as any)
         const f382pts = bars.filter((d: any) => d.fib_382 != null)
           .map((d: any) => ({ time: d.date as Time, value: d.fib_382 as number }))
         if (f382pts.length) fib382Line.setData(f382pts)
@@ -251,11 +251,11 @@ function ChartInner({ ticker }: Props) {
         const stBullLine = pc.addSeries(LineSeries, {
           color: COLORS.bull, lineWidth: 2,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-        })
+        } as any)
         const stBearLine = pc.addSeries(LineSeries, {
           color: COLORS.bear, lineWidth: 2,
           priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-        })
+        } as any)
         const stBullPts = bars.filter((d: any) => d.st_bull  && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
         const stBearPts = bars.filter((d: any) => !d.st_bull && d.supertrend != null).map((d: any) => ({ time: d.date as Time, value: d.supertrend as number }))
         if (stBullPts.length) stBullLine.setData(stBullPts)
@@ -303,11 +303,11 @@ function ChartInner({ ticker }: Props) {
         const sc = subChart.current
 
         if (subPanel === 'rsi') {
-          const rsiS = sc.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: true })
+          const rsiS = sc.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 2, priceLineVisible: false, lastValueVisible: true } as any)
           const pts = bars.filter((d: any) => d.rsi != null).map((d: any) => ({ time: d.date as Time, value: d.rsi as number }))
           if (pts.length) rsiS.setData(pts)
-          rsiS.createPriceLine({ price: 70, color: COLORS.bear, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OB' })
-          rsiS.createPriceLine({ price: 30, color: COLORS.bull, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OS' })
+          rsiS.createPriceLine({ price: 70, color: COLORS.bear, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OB' } as any)
+          rsiS.createPriceLine({ price: 30, color: COLORS.bull, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OS' } as any)
         }
         if (subPanel === 'macd') {
           const histS = sc.addSeries(HistogramSeries, { priceLineVisible: false, lastValueVisible: false } as any)
@@ -316,9 +316,9 @@ function ChartInner({ ticker }: Props) {
             color: (d.macd_hist as number) >= 0 ? COLORS.bull + 'aa' : COLORS.bear + 'aa',
           }))
           if (hPts.length) histS.setData(hPts)
-          const macdL = sc.addSeries(LineSeries, { color: '#0ea5e9', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+          const macdL = sc.addSeries(LineSeries, { color: '#0ea5e9', lineWidth: 1, priceLineVisible: false, lastValueVisible: false } as any)
           macdL.setData(bars.map((d: any) => ({ time: d.date as Time, value: (d.macd ?? 0) as number })))
-          const sigL = sc.addSeries(LineSeries, { color: '#fbbf24', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false })
+          const sigL = sc.addSeries(LineSeries, { color: '#fbbf24', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false } as any)
           const sPts = bars.filter((d: any) => d.macd_signal != null).map((d: any) => ({ time: d.date as Time, value: d.macd_signal as number }))
           if (sPts.length) sigL.setData(sPts)
         }
