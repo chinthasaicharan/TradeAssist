@@ -6,6 +6,7 @@ import type {
   ValuationResponse, CashFlowResponse, RecommendationResponse,
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
   PineStrategy, PineStrategyIn, SwingResponse,
+  SmartMoneyScanResponse,
 } from './types'
 
 export const TOKEN_KEY = 'ta_token'
@@ -111,3 +112,10 @@ export const forkStrategy = (id: string) =>
 
 export const getSwing = (ticker: string) =>
   api.get<SwingResponse>(`/swing/${ticker}`).then(r => r.data)
+
+// ── Smart Money Scanner ───────────────────────────────────────────────────────
+
+export const getSmartMoneyScanner = (tickers?: string, minScore?: number) =>
+  api.get<SmartMoneyScanResponse>('/smart-money-scanner', {
+    params: { tickers: tickers ?? '', min_score: minScore ?? 0 },
+  }).then(r => r.data)

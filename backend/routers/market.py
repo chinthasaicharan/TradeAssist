@@ -17,6 +17,7 @@ from models import (
     HoldingsResponse, HolderEntry,
     BTSTResponse, BTSTSignal,
     SwingResponse, SwingFactor,
+    SmartMoneySignal, SmartMoneyScanResponse, OrderBlock, FVGZone, LiquiditySweep,
 )
 import cache
 import yf_client as yfc
@@ -2615,3 +2616,395 @@ async def get_orb_scanner(
     }
     cache.set(cache_key, result, ttl=180)  # 3 min cache — intraday data
     return result
+
+
+# ── SMART MONEY SCANNER ─────────────────────────────────────────────────────
+#
+# GET /api/smart-money-scanner?tickers=RELIANCE.NS,TCS.NS,...&period=1mo
+#
+# For each ticker detects:
+#   1. Order Blocks (OB)     — last bearish/bullish candle before a strong impulse
+#   2. Fair Value Gaps (FVG) — 3-bar imbalance (gap between bar[i-2] and bar[i])
+#   3. Liquidity Sweeps      — wick beyond swing high/low that reverses
+#   4. 1-month high volume   — today's vol vs 30-day average
+#
+# A "BUY" alert fires when:
+#   - Price is at/near a bullish OB (demand zone)  AND
+#   - There is a bullish FVG below current price (structural support)  OR
+#   - A recent sell-side liquidity sweep reversed  OR
+#   - Volume is anomalously high (institutional accumulation)
+
+DEFAULT_SMC_WATCHLIST: list[str] = [
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+    "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "KOTAKBANK.NS",
+    "LT.NS", "AXISBANK.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS",
+    "MARUTI.NS", "TATAMOTORS.NS", "NTPC.NS", "POWERGRID.NS", "ONGC.NS",
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "TECHM.NS", "TITAN.NS",
+    "ULTRACEMCO.NS", "NESTLEIND.NS", "ADANIENT.NS", "ADANIPORTS.NS",
+    "BAJAJFINSV.NS", "ETERNAL.NS", "TATACONSUM.NS", "DIVISLAB.NS",
+    "JSWSTEEL.NS", "TATASTEEL.NS", "HINDALCO.NS", "COALINDIA.NS",
+    "BPCL.NS", "INDUSINDBK.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+    "TRENT.NS", "GRASIM.NS", "SHRIRAMFIN.NS", "BEL.NS",
+    "HAL.NS", "BAJAJ-AUTO.NS", "M&M.NS", "BRITANNIA.NS", "DABUR.NS",
+]
+
+
+def _detect_order_blocks(
+    opens: list[float], highs: list[float], lows: list[float],
+    closes: list[float], dates: list[str],
+    lookback: int = 50, impulse_mult: float = 1.5,
+) -> list[OrderBlock]:
+    """
+    Identify the last N bullish and bearish order blocks.
+
+    A BULLISH OB = the last bearish (down-close) candle just before a bullish
+    impulse leg (next 3 bars close up significantly).  Price will likely return
+    to this zone as a demand area.
+
+    A BEARISH OB = the last bullish (up-close) candle before a bearish impulse.
+    """
+    n = len(closes)
+    if n < 10:
+        return []
+
+    # ATR for relative sizing
+    trs = [max(highs[i] - lows[i],
+               abs(highs[i] - closes[i-1]),
+               abs(lows[i]  - closes[i-1])) for i in range(1, n)]
+    avg_tr = sum(trs[-20:]) / min(20, len(trs)) if trs else 1.0
+
+    obs: list[OrderBlock] = []
+    seen_ranges: list[tuple[float, float]] = []  # avoid duplicate zones
+
+    start = max(0, n - lookback)
+    for i in range(start, n - 3):
+        body = abs(closes[i] - opens[i])
+        if body < 0.1 * avg_tr:
+            continue  # doji — not a clean OB candle
+
+        # Check for impulse in the next 3 bars
+        fwd_move = closes[i + 3] - closes[i]          # signed: + = up
+        bar_range = highs[i + 1] - lows[i + 1]
+        impulse = abs(fwd_move) > impulse_mult * avg_tr
+
+        if not impulse:
+            continue
+
+        # BULLISH OB: bearish candle (closes[i] < opens[i]) followed by up impulse
+        if closes[i] < opens[i] and fwd_move > 0:
+            ob_high = max(opens[i], closes[i])
+            ob_low  = min(opens[i], closes[i])
+            # Skip if this zone overlaps an existing one
+            if any(abs(ob_high - sh) < avg_tr * 0.5 for sh, sl in seen_ranges):
+                continue
+            # Check if price tested this OB later
+            tested = any(lows[j] <= ob_high and highs[j] >= ob_low for j in range(i + 1, n))
+            fresh  = not tested
+            seen_ranges.append((ob_high, ob_low))
+            strength = "strong" if abs(fwd_move) > 2.5 * avg_tr else "moderate"
+            obs.append(OrderBlock(
+                type="bullish", high=round(ob_high, 2), low=round(ob_low, 2),
+                date=dates[i], strength=strength, tested=tested, fresh=fresh,
+            ))
+
+        # BEARISH OB: bullish candle (closes[i] > opens[i]) followed by down impulse
+        elif closes[i] > opens[i] and fwd_move < 0:
+            ob_high = max(opens[i], closes[i])
+            ob_low  = min(opens[i], closes[i])
+            if any(abs(ob_high - sh) < avg_tr * 0.5 for sh, sl in seen_ranges):
+                continue
+            tested = any(highs[j] >= ob_low and lows[j] <= ob_high for j in range(i + 1, n))
+            fresh  = not tested
+            seen_ranges.append((ob_high, ob_low))
+            strength = "strong" if abs(fwd_move) > 2.5 * avg_tr else "moderate"
+            obs.append(OrderBlock(
+                type="bearish", high=round(ob_high, 2), low=round(ob_low, 2),
+                date=dates[i], strength=strength, tested=tested, fresh=fresh,
+            ))
+
+    # Return most recent first, cap at 5
+    return obs[-5:][::-1]
+
+
+def _detect_fvg(
+    highs: list[float], lows: list[float], closes: list[float], dates: list[str],
+    lookback: int = 50,
+) -> list[FVGZone]:
+    """
+    Fair Value Gap (FVG / imbalance):
+      BULLISH FVG: lows[i] > highs[i-2]  →  gap between high of bar[i-2] and low of bar[i]
+      BEARISH FVG: highs[i] < lows[i-2]  →  gap between low of bar[i-2] and high of bar[i]
+    """
+    n = len(closes)
+    if n < 3:
+        return []
+
+    fvgs: list[FVGZone] = []
+    current_price = closes[-1]
+
+    start = max(2, n - lookback)
+    for i in range(start, n):
+        bull_top = lows[i]
+        bull_bot = highs[i - 2]
+        if bull_top > bull_bot:  # bullish FVG
+            filled = current_price < bull_bot or any(
+                lows[j] < bull_bot for j in range(i + 1, n)
+            )
+            fvgs.append(FVGZone(
+                type="bullish", top=round(bull_top, 2), bottom=round(bull_bot, 2),
+                date=dates[i - 1], filled=filled,
+            ))
+
+        bear_top = lows[i - 2]
+        bear_bot = highs[i]
+        if bear_top > bear_bot:  # bearish FVG
+            filled = current_price > bear_top or any(
+                highs[j] > bear_top for j in range(i + 1, n)
+            )
+            fvgs.append(FVGZone(
+                type="bearish", top=round(bear_top, 2), bottom=round(bear_bot, 2),
+                date=dates[i - 1], filled=filled,
+            ))
+
+    # Most recent first, cap at 5
+    return fvgs[-5:][::-1]
+
+
+def _detect_liquidity_sweeps(
+    highs: list[float], lows: list[float], closes: list[float], dates: list[str],
+    lookback: int = 50, swing_lookback: int = 10,
+) -> list[LiquiditySweep]:
+    """
+    Liquidity Sweep: price wicks beyond a swing high/low and closes back inside.
+    Buy-side sweep = wicked above swing high then closed below → sell trigger.
+    Sell-side sweep = wicked below swing low then closed above → buy trigger.
+    """
+    n = len(closes)
+    if n < swing_lookback + 2:
+        return []
+
+    sweeps: list[LiquiditySweep] = []
+    seen_levels: list[float] = []
+
+    start = max(swing_lookback, n - lookback)
+    for i in range(start, n):
+        # Swing high: max of previous swing_lookback bars highs (excluding current bar)
+        window_h = highs[max(0, i - swing_lookback):i]
+        window_l = lows[max(0, i - swing_lookback):i]
+        if not window_h:
+            continue
+
+        swing_high = max(window_h)
+        swing_low  = min(window_l)
+
+        # Sell-side sweep: wick below swing_low, close back above
+        if lows[i] < swing_low and closes[i] > swing_low:
+            # Ensure it's a meaningful wick (at least half ATR below)
+            wick = swing_low - lows[i]
+            body = abs(closes[i] - (highs[i] + lows[i]) / 2)
+            if wick > 0 and not any(abs(swing_low - lvl) < 0.5 for lvl in seen_levels):
+                seen_levels.append(swing_low)
+                sweeps.append(LiquiditySweep(
+                    type="sell_side", level=round(swing_low, 2),
+                    date=dates[i], reversed=True,
+                ))
+
+        # Buy-side sweep: wick above swing_high, close back below
+        elif highs[i] > swing_high and closes[i] < swing_high:
+            wick = highs[i] - swing_high
+            if wick > 0 and not any(abs(swing_high - lvl) < 0.5 for lvl in seen_levels):
+                seen_levels.append(swing_high)
+                sweeps.append(LiquiditySweep(
+                    type="buy_side", level=round(swing_high, 2),
+                    date=dates[i], reversed=True,
+                ))
+
+    return sweeps[-5:][::-1]
+
+
+async def _smc_scan_single(ticker: str) -> SmartMoneySignal | None:
+    """Compute Smart Money indicators for one ticker. Returns None on failure."""
+    try:
+        hist, info = await asyncio.gather(
+            yfc.fetch_history(ticker, period="3mo", interval="1d"),
+            yfc.fetch_info(ticker),
+            return_exceptions=True,
+        )
+        if isinstance(hist, Exception) or hist is None or hist.empty:
+            return None
+        if isinstance(info, Exception):
+            info = {}
+
+        opens   = hist["Open"].tolist()
+        highs   = hist["High"].tolist()
+        lows    = hist["Low"].tolist()
+        closes  = hist["Close"].tolist()
+        volumes = hist["Volume"].tolist()
+        dates   = [str(idx.date()) for idx in hist.index]
+
+        n = len(closes)
+        if n < 30:
+            return None
+
+        price      = closes[-1]
+        change_pct = round((closes[-1] - closes[-2]) / closes[-2] * 100, 2) if n >= 2 else 0.0
+        name       = (info or {}).get("longName") or (info or {}).get("shortName") or ticker
+
+        # ── 1-month volume comparison ─────────────────────────────────────
+        bars_1m      = min(22, n - 1)
+        avg_vol_1m   = sum(volumes[-bars_1m - 1:-1]) / bars_1m if bars_1m > 0 else volumes[-1]
+        today_vol    = volumes[-1]
+        vol_ratio    = round(today_vol / avg_vol_1m, 2) if avg_vol_1m > 0 else 1.0
+        high_vol     = vol_ratio >= 1.5
+
+        # ── Smart money indicators ────────────────────────────────────────
+        obs      = _detect_order_blocks(opens, highs, lows, closes, dates)
+        fvgs     = _detect_fvg(highs, lows, closes, dates)
+        sweeps   = _detect_liquidity_sweeps(highs, lows, closes, dates)
+
+        # ── OB signal: is price at/near a bullish OB? ─────────────────────
+        # ATR for proximity
+        trs = [max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1]))
+               for i in range(1, n)]
+        avg_tr = sum(trs[-14:]) / min(14, len(trs)) if trs else 1.0
+
+        bull_obs = [ob for ob in obs if ob.type == "bullish"]
+        bear_obs = [ob for ob in obs if ob.type == "bearish"]
+
+        # Price inside or within 1 ATR above a bullish OB
+        ob_alert = any(
+            ob.low <= price <= ob.high + avg_tr
+            for ob in bull_obs
+        )
+
+        # Price inside or within 1 ATR below a bearish OB
+        bear_ob_near = any(
+            ob.low - avg_tr <= price <= ob.high
+            for ob in bear_obs
+        )
+
+        ob_signal: str
+        if ob_alert and not bear_ob_near:
+            ob_signal = "buy"
+        elif bear_ob_near and not ob_alert:
+            ob_signal = "sell"
+        else:
+            ob_signal = "neutral"
+
+        # ── FVG support: bullish FVG unfilled, price above it ────────────
+        bull_fvgs = [f for f in fvgs if f.type == "bullish" and not f.filled]
+        fvg_support = any(f.bottom <= price <= f.top + avg_tr for f in bull_fvgs)
+
+        # ── Sweep reversal: recent sell-side sweep (buy opportunity) ─────
+        recent_sweeps = sweeps[:3]  # last 3 sweeps
+        sweep_reversal = any(s.type == "sell_side" and s.reversed for s in recent_sweeps)
+
+        # ── Composite score (0–100) ───────────────────────────────────────
+        score = 0
+        if ob_signal == "buy":      score += 35
+        elif ob_signal == "sell":   score -= 30
+        if fvg_support:             score += 20
+        if sweep_reversal:          score += 20
+        if high_vol:                score += 15
+        if any(ob.fresh for ob in bull_obs): score += 10
+        score = max(0, min(100, score + 30))  # baseline 30
+
+        # ── Verdict ───────────────────────────────────────────────────────
+        if score >= 75:
+            verdict = "Strong Buy Signal"
+        elif score >= 60:
+            verdict = "Buy Signal"
+        elif score >= 50:
+            verdict = "Watch"
+        elif ob_signal == "sell":
+            verdict = "Sell Signal"
+        else:
+            verdict = "Neutral"
+
+        # ── Summary ───────────────────────────────────────────────────────
+        parts = []
+        if ob_alert:
+            nearest_ob = next((ob for ob in bull_obs if ob.low <= price <= ob.high + avg_tr), None)
+            parts.append(f"Price retesting bullish OB @ ₹{nearest_ob.low:.2f}–{nearest_ob.high:.2f}" if nearest_ob else "Near bullish OB")
+        if fvg_support:
+            parts.append("Bullish FVG acting as support")
+        if sweep_reversal:
+            parts.append("Sell-side liquidity swept (reversal)")
+        if high_vol:
+            parts.append(f"High volume ({vol_ratio}× avg)")
+        if bear_ob_near:
+            parts.append("Price approaching bearish OB (resistance)")
+        summary = " · ".join(parts) if parts else "No significant Smart Money signal"
+
+        return SmartMoneySignal(
+            ticker=ticker,
+            name=name,
+            current_price=round(price, 2),
+            change_pct=change_pct,
+            volume=int(today_vol),
+            volume_vs_avg_1m=vol_ratio,
+            high_volume_alert=high_vol,
+            order_blocks=obs,
+            fvg_zones=fvgs,
+            liquidity_sweeps=sweeps,
+            ob_signal=ob_signal,
+            ob_alert=ob_alert,
+            fvg_support=fvg_support,
+            sweep_reversal=sweep_reversal,
+            smart_money_score=score,
+            verdict=verdict,
+            summary=summary,
+        )
+
+    except Exception as e:
+        log.warning(f"[smc-scanner] {ticker} failed: {e}")
+        return None
+
+
+@router.get("/api/smart-money-scanner", response_model=SmartMoneyScanResponse)
+async def get_smart_money_scanner(
+    tickers: str = Query("", description="Comma-separated NSE/BSE tickers; empty = default Nifty 50 watchlist"),
+    min_score: int = Query(0, ge=0, le=100, description="Minimum smart_money_score to include in results"),
+):
+    cache_key = f"smc-scanner:{tickers}:{min_score}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    if tickers.strip():
+        ticker_list = [yfc.resolve_ticker(t.strip().upper()) for t in tickers.split(",") if t.strip()][:30]
+    else:
+        ticker_list = DEFAULT_SMC_WATCHLIST
+
+    results: list[SmartMoneySignal] = []
+    batch_size = 5
+    for i in range(0, len(ticker_list), batch_size):
+        batch = ticker_list[i:i + batch_size]
+        batch_results = await asyncio.gather(
+            *[_smc_scan_single(t) for t in batch],
+            return_exceptions=True,
+        )
+        for r in batch_results:
+            if isinstance(r, SmartMoneySignal) and r.smart_money_score >= min_score:
+                results.append(r)
+        if i + batch_size < len(ticker_list):
+            await asyncio.sleep(0.8)
+
+    # Sort: buy signals first by score desc, then others
+    results.sort(key=lambda x: (
+        0 if x.verdict in ("Strong Buy Signal", "Buy Signal") else
+        1 if x.verdict == "Watch" else
+        2 if x.verdict == "Neutral" else 3,
+        -x.smart_money_score,
+    ))
+
+    buy_count = sum(1 for r in results if r.verdict in ("Strong Buy Signal", "Buy Signal"))
+
+    response = SmartMoneyScanResponse(
+        scanned=len(ticker_list),
+        results=results,
+        buy_count=buy_count,
+        generated_at=datetime.now(_tz.utc).isoformat(),
+    )
+    cache.set(cache_key, response, ttl=600)  # 10 min cache — daily data
+    return response

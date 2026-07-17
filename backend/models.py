@@ -283,6 +283,64 @@ class SwingFactor(BaseModel):
     note:        str
 
 
+# ── SMART MONEY SCANNER ────────────────────────────────────────────────────
+
+class OrderBlock(BaseModel):
+    type:       Literal["bullish", "bearish"]  # bullish OB = demand zone, bearish = supply
+    high:       float
+    low:        float
+    date:       str                            # ISO date string of the OB candle
+    strength:   Literal["strong", "moderate"]  # how large the impulse was after the OB
+    tested:     bool                           # has price come back to test this OB?
+    fresh:      bool                           # untested = fresh = higher quality
+
+
+class FVGZone(BaseModel):
+    type:       Literal["bullish", "bearish"]  # bullish = support gap, bearish = resistance gap
+    top:        float
+    bottom:     float
+    date:       str                            # date of the middle candle in the 3-bar pattern
+    filled:     bool                           # True if price has already closed inside the gap
+
+
+class LiquiditySweep(BaseModel):
+    type:       Literal["buy_side", "sell_side"]  # buy-side = swept swing high, sell-side = swept swing low
+    level:      float
+    date:       str
+    reversed:   bool                              # True if price reversed after the sweep (actual liquidity grab)
+
+
+class SmartMoneySignal(BaseModel):
+    ticker:                  str
+    name:                    str
+    current_price:           float
+    change_pct:              float
+    volume:                  int
+    volume_vs_avg_1m:        float              # vol today vs 1-month average
+    high_volume_alert:       bool               # vol > 1.5× 1m avg
+
+    # Smart money indicators
+    order_blocks:            list[OrderBlock]   # up to 3 most recent relevant OBs
+    fvg_zones:               list[FVGZone]      # up to 3 most recent FVGs
+    liquidity_sweeps:        list[LiquiditySweep]  # recent sweeps
+
+    # Composite signal
+    ob_signal:               Literal["buy", "sell", "neutral"]  # bullish OB below price or bearish OB above
+    ob_alert:                bool               # price is currently inside/retesting a bullish OB
+    fvg_support:             bool               # price is inside a bullish FVG (support)
+    sweep_reversal:          bool               # recent sell-side sweep + reversal (buy setup)
+    smart_money_score:       int                # 0-100 composite (OB + FVG + sweep + vol)
+    verdict:                 Literal["Strong Buy Signal", "Buy Signal", "Watch", "Neutral", "Sell Signal"]
+    summary:                 str
+
+
+class SmartMoneyScanResponse(BaseModel):
+    scanned:   int
+    results:   list[SmartMoneySignal]
+    buy_count: int
+    generated_at: str
+
+
 class SwingResponse(BaseModel):
     ticker:          str
     name:            str

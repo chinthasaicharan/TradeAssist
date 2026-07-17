@@ -324,3 +324,58 @@ export interface SwingResponse {
   price_history:   { date: string; open: number; high: number; low: number; close: number; volume: number }[]
   generated_at:    string
 }
+
+
+// ── Smart Money Scanner ───────────────────────────────────────────────────────
+
+export interface OrderBlock {
+  type:     'bullish' | 'bearish'
+  high:     number
+  low:      number
+  date:     string
+  strength: 'strong' | 'moderate'
+  tested:   boolean
+  fresh:    boolean
+}
+
+export interface FVGZone {
+  type:    'bullish' | 'bearish'
+  top:     number
+  bottom:  number
+  date:    string
+  filled:  boolean
+}
+
+export interface LiquiditySweep {
+  type:     'buy_side' | 'sell_side'
+  level:    number
+  date:     string
+  reversed: boolean
+}
+
+export interface SmartMoneySignal {
+  ticker:               string
+  name:                 string
+  current_price:        number
+  change_pct:           number
+  volume:               number
+  volume_vs_avg_1m:     number
+  high_volume_alert:    boolean
+  order_blocks:         OrderBlock[]
+  fvg_zones:            FVGZone[]
+  liquidity_sweeps:     LiquiditySweep[]
+  ob_signal:            'buy' | 'sell' | 'neutral'
+  ob_alert:             boolean
+  fvg_support:          boolean
+  sweep_reversal:       boolean
+  smart_money_score:    number
+  verdict:              'Strong Buy Signal' | 'Buy Signal' | 'Watch' | 'Neutral' | 'Sell Signal'
+  summary:              string
+}
+
+export interface SmartMoneyScanResponse {
+  scanned:      number
+  results:      SmartMoneySignal[]
+  buy_count:    number
+  generated_at: string
+}

@@ -20,6 +20,7 @@ import { AuthPage } from './components/AuthPage'
 import { PaperTradesPanel } from './components/PaperTradesPanel'
 import { Logo } from './components/Logo'
 import { ORBScannerPanel } from './components/ORBScannerPanel'
+import { SmartMoneyPanel } from './components/SmartMoneyPanel'
 import { PineScriptPanel } from './components/PineScriptPanel'
 import { SwingPanel } from './components/SwingPanel'
 import { SwingSearchWidget } from './components/SwingSearchWidget'
@@ -368,6 +369,13 @@ export default function App() {
             <div className="mt-6 w-full max-w-3xl">
               <PanelBoundary name="ORBScanner">
                 <ORBScannerPanel onSelectTicker={handleSelect} />
+              </PanelBoundary>
+            </div>
+
+            {/* Smart Money Scanner */}
+            <div className="mt-6 w-full max-w-3xl">
+              <PanelBoundary name="SmartMoney">
+                <SmartMoneyPanel onSelectTicker={handleSelect} />
               </PanelBoundary>
             </div>
 
