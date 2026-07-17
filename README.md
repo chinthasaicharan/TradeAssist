@@ -29,7 +29,7 @@ copy .env.example .env        # edit OPENAI_API_KEY if you have one
 uvicorn main:app --reload --port 8000
 ```
 
-Backend runs at **http://localhost:8000**
+
 
 ### 2. Frontend
 
@@ -39,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at **http://localhost:5173** (auto-proxies `/api` → backend)
+Frontend runs 
 
 ---
 
