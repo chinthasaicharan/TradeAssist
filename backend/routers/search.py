@@ -623,73 +623,146 @@ async def startup_load():
 
 # ── Search helpers ─────────────────────────────────────────────────────────
 
-def _score(ticker: str, name: str, q: str) -> int:
-    """
-    Relevance score for a ticker/name pair against query q (already upper-cased).
-    Higher = more relevant.
-    """
-    sym_clean = ticker.replace(".NS", "").replace(".BO", "")
-    score = 0
+# Common keyword aliases → what to also search for
+_ALIASES: dict[str, list[str]] = {
+    "ZOMATO":   ["ETERNAL"],
+    "ETERNAL":  ["ZOMATO"],
+    "FLIPKART": ["MEESHO"],
+    "HDFC":     ["HDFCBANK", "HDFCLIFE", "HDFCAMC", "HDBFS", "BAJAJHFL"],
+    "ICICI":    ["ICICIBANK", "ICICIGI", "ICICIPRULI", "ICICIAMC"],
+    "TATA":     ["TCS", "TATASTEEL", "TATAPOWER", "TATAMOTORS", "TATACHEM",
+                 "TATACONSUM", "TATAELXSI", "TATAINVEST", "TATATECH"],
+    "ADANI":    ["ADANIENT", "ADANIGREEN", "ADANIPORTS", "ADANIPOWER", "ATGL", "ADANIENSOL"],
+    "BAJAJ":    ["BAJFINANCE", "BAJAJFINSV", "BAJAJ-AUTO", "BAJAJHLDNG", "BAJAJHFL"],
+    "SBI":      ["SBIN", "SBICARD", "SBILIFE", "SBFC"],
+    "PHARMA":   ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN", "DIVISLAB", "AUROPHARMA",
+                 "ALKEM", "TORNTPHARM", "BIOCON", "GLAND", "IPCALAB"],
+    "BANK":     ["HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK",
+                 "INDUSINDBK", "BANDHANBNK", "FEDERALBNK", "YESBANK", "IDFCFIRSTB"],
+    "IT":       ["TCS", "INFY", "WIPRO", "HCLTECH", "TECHM", "COFORGE",
+                 "PERSISTENT", "LTTS", "MPHASIS", "LTIM"],
+    "INFRA":    ["LT", "RVNL", "IRCON", "IRFC", "NBCC", "KEC", "KPIL",
+                 "AFCONS", "ENGINERSIN"],
+    "AUTO":     ["MARUTI", "TATAMOTORS", "M&M", "BAJAJ-AUTO", "HEROMOTOCO",
+                 "EICHERMOT", "TVSMOTORS", "ASHOKLEY"],
+    "POWER":    ["NTPC", "POWERGRID", "TATAPOWER", "ADANIPOWER", "JSWENERGY",
+                 "TORNTPOWER", "CESC", "NHPC", "SJVN"],
+    "OIL":      ["RELIANCE", "ONGC", "BPCL", "IOC", "HINDPETRO", "OIL",
+                 "MRPL", "PETRONET"],
+    "CEMENT":   ["ULTRACEMCO", "SHREECEM", "AMBUJACEM", "ACC", "DALBHARAT",
+                 "RAMCOCEM", "JKCEMENT", "NUVOCO"],
+    "METAL":    ["TATASTEEL", "JSWSTEEL", "HINDALCO", "VEDL", "SAIL",
+                 "NATIONALUM", "HINDCOPPER", "NMDC"],
+    "REALTY":   ["DLF", "GODREJPROP", "PRESTIGE", "OBEROIRLTY", "LODHA",
+                 "BRIGADE", "SOBHA", "PHOENIXLTD"],
+    "INSURANCE":["HDFCLIFE", "SBILIFE", "ICICIPRULI", "ICICIGI", "STARHEALTH",
+                 "MAXHEALTH", "LICI", "GICRE", "NIACL"],
+    "FMCG":     ["HINDUNILVR", "ITC", "BRITANNIA", "DABUR", "MARICO",
+                 "GODREJCP", "COLPAL", "EMAMILTD", "NESTLEIND"],
+}
 
-    # Exact symbol match
-    if sym_clean == q:
-        score += 100
-    # Symbol starts with query
-    elif sym_clean.startswith(q):
-        score += 60
-    # Symbol contains query
-    elif q in sym_clean:
-        score += 30
 
-    # Company name: word-boundary start match
+def _score(ticker: str, name: str, q_words: list[str]) -> int:
+    """
+    Multi-word relevance score. Each word in the query is scored independently.
+    All words must contribute positively for a result to be returned.
+    """
+    sym_clean  = ticker.replace(".NS", "").replace(".BO", "").upper()
     name_upper = name.upper()
-    if name_upper.startswith(q):
-        score += 50
-    # First word of company name matches
-    elif name_upper.split()[0] == q if name_upper.split() else False:
-        score += 45
-    # Company name contains query as a word
-    elif re.search(r'\b' + re.escape(q) + r'\b', name_upper):
-        score += 25
-    # Company name contains query as substring
-    elif q in name_upper:
-        score += 10
 
-    return score
+    # Build searchable tokens from name (words, acronym)
+    name_words = name_upper.split()
+    acronym    = "".join(w[0] for w in name_words if w.isalpha())
+
+    total = 0
+    for q in q_words:
+        word_score = 0
+
+        # ── Symbol matches ──────────────────────────────────────────
+        if sym_clean == q:
+            word_score += 100
+        elif sym_clean.startswith(q):
+            word_score += 65
+        elif q in sym_clean:
+            word_score += 35
+
+        # ── Acronym match (e.g. "HDFC" matches "HDFC Bank Ltd") ────
+        if acronym == q:
+            word_score += 55
+        elif acronym.startswith(q) and len(q) >= 2:
+            word_score += 30
+
+        # ── Company name matches ────────────────────────────────────
+        if name_upper.startswith(q):
+            word_score += 60
+        elif name_words and name_words[0] == q:
+            word_score += 50
+        elif re.search(r'\b' + re.escape(q) + r'\b', name_upper):
+            word_score += 28
+        elif q in name_upper:
+            word_score += 12
+
+        # If this word contributes nothing, kill the whole result
+        # (unless it's a short stop-word like AND, OF, &)
+        if word_score == 0 and len(q) > 2 and q not in ("AND", "OF", "THE", "LTD", "LTD.", "&"):
+            return 0
+
+        total += word_score
+
+    # Bonus: more words matched = tighter result
+    if len(q_words) > 1:
+        total += 20
+
+    return total
 
 
 @router.get("/api/search", response_model=list[SearchSuggestion])
-async def search_tickers(q: str = Query(..., min_length=1, max_length=40)):
-    q_clean = q.strip().upper()
+async def search_tickers(q: str = Query(..., min_length=1, max_length=60)):
+    q_clean   = q.strip().upper()
+    q_stripped = re.sub(r'\.(NS|BO)$', '', q_clean).strip()
 
-    # Strip common suffixes users type
-    q_stripped = q_clean.replace(".NS", "").replace(".BO", "").strip()
+    # Split into words, remove noise
+    raw_words = [w for w in re.split(r'[\s,&]+', q_stripped) if w]
+    # Deduplicate while preserving order
+    seen_w: set[str] = set()
+    q_words = [w for w in raw_words if not (w in seen_w or seen_w.add(w))]  # type: ignore[func-returns-value]
 
-    cache_key = f"search:{q_stripped}"
+    cache_key = f"search2:{q_stripped}"
     cached = cache.get(cache_key)
     if cached:
         return cached
 
-    # Score every ticker in the list
+    # Expand aliases — collect extra symbols to boost
+    alias_boosts: set[str] = set()
+    for word in q_words:
+        for alias_syms in _ALIASES.get(word, []):
+            alias_boosts.add(alias_syms)
+
+    # Score every ticker
     scored: list[tuple[int, tuple[str, str, str]]] = []
     for entry in _TICKERS:
-        s = _score(entry[0], entry[1], q_stripped)
+        sym_clean_entry = entry[0].replace(".NS", "").replace(".BO", "").upper()
+
+        # Alias boost: if this ticker matches an alias, treat single-word query against its symbol
+        if sym_clean_entry in alias_boosts:
+            s = _score(entry[0], entry[1], [sym_clean_entry]) + 40
+        else:
+            s = _score(entry[0], entry[1], q_words)
+
         if s > 0:
             scored.append((s, entry))
 
-    # Sort by score descending
     scored.sort(key=lambda x: -x[0])
     results = [
         SearchSuggestion(ticker=t, name=n, exchange=e)
         for _, (t, n, e) in scored[:12]
     ]
 
-    # If still nothing, try yfinance as last resort (no .NS / .BO assumed)
+    # Last resort: yfinance direct lookup for unlisted tickers
     if not results:
         import yfinance as yf
-        candidates = [q_clean]
-        if not q_clean.endswith(".NS") and not q_clean.endswith(".BO"):
-            candidates = [f"{q_stripped}.NS", f"{q_stripped}.BO", q_clean]
+        base = q_words[0] if q_words else q_stripped
+        candidates = [f"{base}.NS", f"{base}.BO", q_clean]
         for candidate in candidates:
             try:
                 info = yf.Ticker(candidate).info
