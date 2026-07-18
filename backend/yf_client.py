@@ -288,3 +288,39 @@ async def fetch_holdings(symbol: str) -> dict:
         return await asyncio.get_event_loop().run_in_executor(
             None, _fetch_holdings_sync, symbol
         )
+
+
+def _fetch_cashflow_sync(symbol: str) -> tuple:
+    """Fetch cashflow + income statements via the same retry/throttle pattern."""
+    global _backoff_until
+    for sym in _fallback_symbols(symbol):
+        for attempt in range(MAX_RETRIES + 1):
+            _throttle()
+            try:
+                t = _ticker(sym)
+                cf_ann  = t.cashflow
+                cf_qtr  = t.quarterly_cashflow
+                is_ann  = t.income_stmt
+                is_qtr  = t.quarterly_income_stmt
+                if cf_ann is not None and not cf_ann.empty:
+                    return cf_ann, cf_qtr, is_ann, is_qtr
+                break
+            except Exception as exc:
+                if _is_429(exc):
+                    delay = BASE_DELAY * (2 ** attempt) + random.uniform(1, 3)
+                    _backoff_until = time.monotonic() + delay
+                    log.warning(f"[yfc] 429 cashflow/{sym}, cooling {delay:.0f}s")
+                    time.sleep(delay)
+                else:
+                    log.warning(f"[yfc] cashflow/{sym} failed: {exc}")
+                    break
+    return None, None, None, None
+
+
+async def fetch_cashflow_statements(symbol: str) -> tuple:
+    """Returns (cf_annual, cf_quarterly, income_annual, income_quarterly)."""
+    symbol = resolve_ticker(symbol)
+    async with _get_sem():
+        return await asyncio.get_event_loop().run_in_executor(
+            None, _fetch_cashflow_sync, symbol
+        )

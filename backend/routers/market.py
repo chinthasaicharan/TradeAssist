@@ -90,9 +90,16 @@ def safe_float(val: Any) -> float | None:
 
 def safe_int(val: Any) -> int | None:
     try:
-        return int(val)
+        v = int(float(val))
+        return v
     except (TypeError, ValueError):
         return None
+
+
+def clean_hist(hist: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows with NaN in OHLCV columns so indicator math never sees NaN."""
+    cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in hist.columns]
+    return hist.dropna(subset=cols)
 
 
 # ── QUOTE ──────────────────────────────────────────────────────────────────
@@ -255,8 +262,11 @@ async def get_technical(ticker: str):
         return cached
 
     hist = await yfc.fetch_history(ticker, period="1y", interval="1d")
-    if hist.empty:
+    if hist is None or hist.empty:
         raise HTTPException(status_code=404, detail=f"No price data for {ticker}")
+    hist = clean_hist(hist)
+    if hist.empty:
+        raise HTTPException(status_code=404, detail=f"No valid price data for {ticker}")
 
     info = await yfc.fetch_info(ticker)
 
@@ -494,8 +504,8 @@ async def get_technical(ticker: str):
         rsi=rsi_val,
         rsi_signal=rsi_signal,
         macd=round(macd_v, 4),
-        macd_signal=round(macd_s, 4) if macd_s else None,
-        macd_hist=round(macd_h, 4) if macd_h else None,
+        macd_signal=round(macd_s, 4) if macd_s is not None else None,
+        macd_hist=round(macd_h, 4) if macd_h is not None else None,
         bb_upper=bb_u, bb_middle=bb_m, bb_lower=bb_l, bb_width=bb_width,
         supertrend=st_v,
         supertrend_signal="bullish" if st_d == 1 else "bearish",
@@ -558,8 +568,9 @@ async def get_trend(ticker: str):
         return cached
 
     hist = await yfc.fetch_history(ticker, period="2y", interval="1d")
-    if hist.empty:
+    if hist is None or hist.empty:
         raise HTTPException(status_code=404, detail=f"No price data for {ticker}")
+    hist = clean_hist(hist)
 
     closes = hist["Close"].tolist()
     sma20  = compute_sma(closes, 20)
@@ -908,19 +919,8 @@ async def get_cashflow(ticker: str):
     if not info:
         raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
 
-    # Fetch cash flow statements
-    loop = asyncio.get_event_loop()
-
-    def _fetch_cf():
-        import yfinance as yf
-        import yf_client as _yfc
-        t = yf.Ticker(ticker, session=_yfc._YF_SESSION)
-        return t.cashflow, t.quarterly_cashflow, t.income_stmt, t.quarterly_income_stmt
-
-    try:
-        cf_ann, cf_qtr, is_ann, is_qtr = await loop.run_in_executor(None, _fetch_cf)
-    except Exception:
-        cf_ann = cf_qtr = is_ann = is_qtr = None
+    # Fetch cash flow + income statements via the rate-limited yfc wrapper
+    cf_ann, cf_qtr, is_ann, is_qtr = await yfc.fetch_cashflow_statements(ticker)
 
     def parse_cf(cf_df: pd.DataFrame | None, is_df: pd.DataFrame | None,
                  quarterly: bool) -> list[CashFlowPeriod]:
@@ -1105,8 +1105,9 @@ async def get_recommendation(ticker: str):
         return cached
 
     hist = await yfc.fetch_history(ticker, period="2y", interval="1d")
-    if hist.empty:
+    if hist is None or hist.empty:
         raise HTTPException(status_code=404, detail=f"No price data for {ticker}")
+    hist = clean_hist(hist)
 
     closes  = hist["Close"].tolist()
     volumes = hist["Volume"].tolist()
@@ -1512,8 +1513,11 @@ async def get_btst(ticker: str):
     hist_5d  = await yfc.fetch_history(ticker, period="5d",   interval="15m")
     info     = await yfc.fetch_info(ticker)
 
-    if hist_60.empty:
+    if hist_60 is None or hist_60.empty:
         raise HTTPException(status_code=404, detail=f"No price data for {ticker}")
+    hist_60 = clean_hist(hist_60)
+    if not hist_5d.empty:
+        hist_5d = clean_hist(hist_5d)
 
     # ── Daily series ───────────────────────────────────────────────────────
     closes  = hist_60["Close"].tolist()
@@ -1748,10 +1752,11 @@ async def get_swing(ticker: str):
         return_exceptions=True,
     )
 
-    if isinstance(hist, Exception) or hist.empty:
+    if isinstance(hist, Exception) or hist is None or hist.empty:
         raise HTTPException(status_code=404, detail=f"No data for {ticker}")
     if isinstance(info, Exception):
         info = {}
+    hist = clean_hist(hist)
 
     closes  = hist["Close"].tolist()
     highs   = hist["High"].tolist()
@@ -2309,6 +2314,9 @@ async def get_chart_data(
     hist = await yfc.fetch_history(ticker, period=period, interval=interval)
     if hist is None or hist.empty:
         raise HTTPException(status_code=404, detail=f"No data for {ticker}")
+    hist = clean_hist(hist)
+    if hist.empty:
+        raise HTTPException(status_code=404, detail=f"No valid price data for {ticker}")
 
     opens   = hist["Open"].tolist()
     highs   = hist["High"].tolist()
@@ -2834,6 +2842,9 @@ async def _smc_scan_single(ticker: str) -> SmartMoneySignal | None:
             return None
         if isinstance(info, Exception):
             info = {}
+        hist = clean_hist(hist)
+        if hist.empty:
+            return None
 
         opens   = hist["Open"].tolist()
         highs   = hist["High"].tolist()
