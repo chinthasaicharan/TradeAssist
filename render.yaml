@@ -12,4 +12,10 @@ services:
         sync: false   # set manually in Render dashboard (secret)
       - key: OPENAI_API_KEY
         sync: false
+      - key: DATABASE_PATH
+        value: /var/data/tradeassist.db      # persistent disk mount
+    disk:
+      name: tradeassist-db
+      mountPath: /var/data
+      sizeGB: 1
     plan: free

@@ -1,11 +1,31 @@
 """
 Lightweight SQLite database layer using Python's built-in sqlite3.
 No ORM, no new dependencies beyond stdlib.
+
+DB path priority:
+  1. DATABASE_PATH env var (set this in Render to /var/data/tradeassist.db)
+  2. /var/data/tradeassist.db  (Render persistent disk mount point)
+  3. <backend_dir>/tradeassist.db  (local dev fallback)
 """
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "tradeassist.db"
+def _resolve_db_path() -> Path:
+    # Explicit override via env var
+    env = os.getenv("DATABASE_PATH", "").strip()
+    if env:
+        p = Path(env)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+    # Render persistent disk convention
+    render_path = Path("/var/data/tradeassist.db")
+    if render_path.parent.exists():
+        return render_path
+    # Local dev fallback
+    return Path(__file__).parent / "tradeassist.db"
+
+DB_PATH = _resolve_db_path()
 
 
 def get_conn() -> sqlite3.Connection:
