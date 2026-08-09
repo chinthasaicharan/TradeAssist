@@ -51,6 +51,7 @@ export function HoldingsPanel({ ticker }: Props) {
     queryKey: ['holdings', ticker],
     queryFn: () => getHoldings(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />

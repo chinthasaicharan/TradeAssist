@@ -52,6 +52,11 @@ class FinancialsResponse(BaseModel):
     quarterly: list[FinancialPeriod]
 
 
+class StockSummaryResponse(BaseModel):
+    quote: QuoteResponse
+    fundamentals: FundamentalsResponse
+
+
 class PriceLevel(BaseModel):
     price: float
     strength: Literal["strong", "moderate", "weak"]

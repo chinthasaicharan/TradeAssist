@@ -33,7 +33,7 @@ except Exception as e:
 # ── Rate-limit config ──────────────────────────────────────────────────────
 MAX_RETRIES  = 3
 BASE_DELAY   = 4.0     # first retry delay (seconds)
-INTER_DELAY  = 1.0     # minimum gap between any two Yahoo calls
+INTER_DELAY  = 0.4     # minimum gap between any two Yahoo calls
 
 _last_call_time: float = 0.0
 _backoff_until:  float = 0.0  # global cooldown after a 429
@@ -238,13 +238,13 @@ def _fetch_holdings_sync(symbol: str) -> dict:
     return {"major": None, "inst": None, "mf": None}
 
 
-# ── Semaphore — limit to 3 concurrent Yahoo calls ────────────────────────
+# ── Semaphore — limit to 5 concurrent Yahoo calls ────────────────────────
 _sem: asyncio.Semaphore | None = None
 
 def _get_sem() -> asyncio.Semaphore:
     global _sem
     if _sem is None:
-        _sem = asyncio.Semaphore(3)
+        _sem = asyncio.Semaphore(5)
     return _sem
 
 

@@ -40,6 +40,7 @@ export function ProfitRevenuePanel({ ticker }: Props) {
     queryKey: ['financials', ticker],
     queryFn: () => getFinancials(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />

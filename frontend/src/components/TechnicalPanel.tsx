@@ -70,6 +70,7 @@ export function TechnicalPanel({ ticker }: Props) {
     queryKey: ['technical', ticker],
     queryFn: () => getTechnical(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />

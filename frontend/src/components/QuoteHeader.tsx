@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getQuote } from '../api'
+import { getStockSummary } from '../api'
 import { fmt, fmtLargeNum } from '../utils'
 
 interface Props { ticker: string }
@@ -13,13 +13,16 @@ function currencySymbol(currency: string): string {
 
 export function QuoteHeader({ ticker }: Props) {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['quote', ticker],
-    queryFn: () => getQuote(ticker),
+    queryKey: ['stock-summary', ticker],
+    queryFn: () => getStockSummary(ticker),
     enabled: !!ticker,
     refetchInterval: 60_000,
+    staleTime: 30_000,
     retry: 2,
     retryDelay: 3000,
   })
+
+  const quote = data?.quote
 
   if (isLoading) {
     return (
@@ -30,7 +33,7 @@ export function QuoteHeader({ ticker }: Props) {
     )
   }
 
-  if (isError || !data) {
+  if (isError || !quote) {
     const alreadyNSE = ticker.endsWith('.NS') || ticker.endsWith('.BO')
     return (
       <div className="panel border-red-800">
@@ -53,35 +56,35 @@ export function QuoteHeader({ ticker }: Props) {
     )
   }
 
-  const positive = data.change >= 0
-  const sym = currencySymbol(data.currency)
+  const positive = quote.change >= 0
+  const sym = currencySymbol(quote.currency)
 
   return (
     <div className="panel flex flex-wrap items-center justify-between gap-4">
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-extrabold text-white">{data.ticker}</h1>
+          <h1 className="text-3xl font-extrabold text-white">{quote.ticker}</h1>
           <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-            data.market_status === 'regular' || data.market_status === 'open'
+            quote.market_status === 'regular' || quote.market_status === 'open'
               ? 'bg-emerald-900 text-emerald-400'
               : 'bg-gray-700 text-gray-400'
           }`}>
-            {data.market_status?.toUpperCase()}
+            {quote.market_status?.toUpperCase()}
           </span>
         </div>
-        <p className="text-gray-400 text-sm mt-1">{data.name} · {data.exchange} · {data.currency}</p>
+        <p className="text-gray-400 text-sm mt-1">{quote.name} · {quote.exchange} · {quote.currency}</p>
       </div>
 
       <div className="flex items-end gap-6 flex-wrap">
         <div className="text-right">
-          <p className="text-4xl font-black text-white">{sym}{fmt(data.current_price)}</p>
+          <p className="text-4xl font-black text-white">{sym}{fmt(quote.current_price)}</p>
           <p className={`text-sm font-semibold ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-            {positive ? '▲' : '▼'} {sym}{fmt(Math.abs(data.change))} ({fmt(Math.abs(data.change_pct), 2)}%)
+            {positive ? '▲' : '▼'} {sym}{fmt(Math.abs(quote.change))} ({fmt(Math.abs(quote.change_pct), 2)}%)
           </p>
         </div>
         <div className="text-right text-sm text-gray-400">
-          <p>Vol: <span className="text-white">{fmtLargeNum(data.volume)}</span></p>
-          <p>Avg Vol: <span className="text-white">{fmtLargeNum(data.avg_volume)}</span></p>
+          <p>Vol: <span className="text-white">{fmtLargeNum(quote.volume)}</span></p>
+          <p>Avg Vol: <span className="text-white">{fmtLargeNum(quote.avg_volume)}</span></p>
         </div>
       </div>
     </div>

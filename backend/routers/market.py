@@ -18,6 +18,7 @@ from models import (
     BTSTResponse, BTSTSignal,
     SwingResponse, SwingFactor,
     SmartMoneySignal, SmartMoneyScanResponse, OrderBlock, FVGZone, LiquiditySweep,
+    StockSummaryResponse,
 )
 import cache
 import yf_client as yfc
@@ -166,6 +167,67 @@ async def get_fundamentals(ticker: str):
     )
     cache.set(f"fundamentals:{ticker}", result, ttl=86400)
     return result
+
+
+# ── STOCK SUMMARY (quote + fundamentals in one fetch) ─────────────────────
+
+@router.get("/api/stock-summary/{ticker}", response_model=StockSummaryResponse)
+async def get_stock_summary(ticker: str):
+    """Returns quote + fundamentals in a single yfinance fetch, saving one round-trip."""
+    ticker = validate_ticker(ticker)
+
+    # Try cache first for both pieces
+    cached_quote = cache.get(f"quote:{ticker}")
+    cached_fund  = cache.get(f"fundamentals:{ticker}")
+    if cached_quote and cached_fund:
+        return StockSummaryResponse(quote=cached_quote, fundamentals=cached_fund)
+
+    info = await yfc.fetch_info(ticker)
+    if not info or (not info.get("regularMarketPrice") and not info.get("currentPrice")):
+        raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found. Use NSE format e.g. RELIANCE.NS")
+
+    price = info.get("currentPrice") or info.get("regularMarketPrice") or 0.0
+
+    quote = cached_quote or QuoteResponse(
+        ticker=ticker,
+        name=info.get("longName") or info.get("shortName") or ticker,
+        exchange=info.get("exchange") or info.get("fullExchangeName") or "NSE",
+        currency=info.get("currency", "INR"),
+        current_price=safe_float(price) or 0.0,
+        change=safe_float(info.get("regularMarketChange")) or 0.0,
+        change_pct=safe_float(info.get("regularMarketChangePercent")) or 0.0,
+        volume=safe_int(info.get("regularMarketVolume") or info.get("volume")) or 0,
+        avg_volume=safe_int(info.get("averageVolume")) or 0,
+        market_status=(
+            "open" if info.get("marketState") == "REGULAR"
+            else (info.get("marketState") or "closed").lower()
+        ),
+    )
+
+    fundamentals = cached_fund or FundamentalsResponse(
+        ticker=ticker,
+        pe_ratio=safe_float(info.get("trailingPE") or info.get("forwardPE")),
+        eps=safe_float(info.get("trailingEps")),
+        market_cap=safe_int(info.get("marketCap")),
+        dividend_yield=safe_float(info.get("dividendYield")),
+        price_to_book=safe_float(info.get("priceToBook")),
+        debt_to_equity=safe_float(info.get("debtToEquity")),
+        roe=safe_float(info.get("returnOnEquity")),
+        beta=safe_float(info.get("beta")),
+        week_52_high=safe_float(info.get("fiftyTwoWeekHigh")),
+        week_52_low=safe_float(info.get("fiftyTwoWeekLow")),
+        sector=info.get("sector"),
+        industry=info.get("industry"),
+        description=info.get("longBusinessSummary"),
+    )
+
+    # Populate individual caches so other endpoints benefit too
+    if not cached_quote:
+        cache.set(f"quote:{ticker}", quote, ttl=60)
+    if not cached_fund:
+        cache.set(f"fundamentals:{ticker}", fundamentals, ttl=86400)
+
+    return StockSummaryResponse(quote=quote, fundamentals=fundamentals)
 
 
 # ── FINANCIALS ─────────────────────────────────────────────────────────────

@@ -132,6 +132,7 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
     queryKey: ['recommendation', ticker],
     queryFn:  () => getRecommendation(ticker),
     enabled:  !!ticker,
+    staleTime: 5 * 60_000,
   })
 
   const pinMutation = useMutation({

@@ -15,8 +15,6 @@ import { HoldingsPanel } from './components/HoldingsPanel'
 import { BTSTPanel } from './components/BTSTPanel'
 import { ChatWidget } from './components/ChatWidget'
 import { ChartPanel } from './components/ChartPanel'
-import { useAuth } from './AuthContext'
-import { AuthPage } from './components/AuthPage'
 import { PaperTradesPanel } from './components/PaperTradesPanel'
 import { Logo } from './components/Logo'
 import { ORBScannerPanel } from './components/ORBScannerPanel'
@@ -175,7 +173,6 @@ function saveFavs(f: string[]) {
 }
 
 export default function App() {
-  const { user, loading, logout } = useAuth()
   const [ticker, setTicker] = useState<string>(() => {
     const raw = loadLast()
     return resolveAlias(raw).ticker   // resolve alias on initial load
@@ -234,16 +231,6 @@ export default function App() {
     setFavs(prev => { const next = prev.filter(f => f !== t); saveFavs(next); return next })
   }
 
-  // Early returns AFTER all hooks
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Loading...</div>
-      </div>
-    )
-  }
-  if (!user) return <AuthPage />
-
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header bar */}
@@ -272,19 +259,6 @@ export default function App() {
               {isFav ? '★' : '☆'}
             </button>
           )}
-          {/* User + logout */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <span className="text-xs text-gray-500 hidden sm:block">
-              {user.username}
-            </span>
-            <button
-              onClick={logout}
-              title="Sign out"
-              className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
         </div>
 
         {/* Favourites bar */}

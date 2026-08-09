@@ -57,6 +57,7 @@ export function CashFlowPanel({ ticker }: Props) {
     queryKey: ['cashflow', ticker],
     queryFn: () => getCashFlow(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />

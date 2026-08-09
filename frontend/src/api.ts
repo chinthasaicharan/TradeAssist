@@ -6,20 +6,11 @@ import type {
   ValuationResponse, CashFlowResponse, RecommendationResponse,
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
   PineStrategy, PineStrategyIn, SwingResponse,
-  SmartMoneyScanResponse,
+  SmartMoneyScanResponse, StockSummaryResponse,
 } from './types'
-
-export const TOKEN_KEY = 'ta_token'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api',
-})
-
-// Inject JWT on every request
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
 })
 
 // Ping backend on load to wake it up (Render free tier cold start)
@@ -27,21 +18,10 @@ if (import.meta.env.VITE_API_URL) {
   axios.get(`${import.meta.env.VITE_API_URL}/health`).catch(() => {})
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-export interface AuthUser { id: string; email: string; username: string; created_at: string }
-export interface AuthResponse { access_token: string; token_type: string; expires_in: number; user: AuthUser }
-
-export const register = (email: string, username: string, password: string) =>
-  api.post<AuthResponse>('/auth/register', { email, username, password }).then(r => r.data)
-
-export const login = (login: string, password: string) =>
-  api.post<AuthResponse>('/auth/login', { login, password }).then(r => r.data)
-
-export const getMe = () =>
-  api.get<AuthUser>('/auth/me').then(r => r.data)
-
 // ── Market data ───────────────────────────────────────────────────────────────
+
+export const getStockSummary = (ticker: string) =>
+  api.get<StockSummaryResponse>(`/stock-summary/${ticker}`).then(r => r.data)
 
 export const searchTickers   = (q: string) =>
   api.get<SearchSuggestion[]>('/search', { params: { q } }).then(r => r.data)

@@ -379,3 +379,10 @@ export interface SmartMoneyScanResponse {
   buy_count:    number
   generated_at: string
 }
+
+// ── Stock Summary (quote + fundamentals in one call) ─────────────────────────
+
+export interface StockSummaryResponse {
+  quote: QuoteResponse
+  fundamentals: FundamentalsResponse
+}

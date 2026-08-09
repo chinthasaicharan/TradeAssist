@@ -68,6 +68,7 @@ export function TrendPanel({ ticker }: Props) {
     queryKey: ['trend', ticker],
     queryFn: () => getTrend(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />

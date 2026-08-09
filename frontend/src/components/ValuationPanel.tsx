@@ -38,6 +38,7 @@ export function ValuationPanel({ ticker }: Props) {
     queryKey: ['valuation', ticker],
     queryFn: () => getValuation(ticker),
     enabled: !!ticker,
+    staleTime: 60 * 60_000,
   })
 
   if (isLoading) return <PanelSkeleton />
