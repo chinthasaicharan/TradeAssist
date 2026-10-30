@@ -12,8 +12,10 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
   const [debounced, setDebounced] = useState('')
+  const [activeIdx, setActiveIdx] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   // Debounce — 250ms feels snappy for a local-first search
   useEffect(() => {
@@ -27,6 +29,14 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
     enabled: debounced.length >= 1,
     staleTime: 60_000,
   })
+
+  // Keep the highlighted row in bounds whenever the result list changes
+  useEffect(() => { setActiveIdx(0) }, [debounced])
+
+  // Scroll the keyboard-highlighted row into view
+  useEffect(() => {
+    listRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' })
+  }, [activeIdx, suggestions])
 
   // Close on outside click
   useEffect(() => {
@@ -46,19 +56,21 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && input.trim()) {
-      // If there's an exact suggestion match, use it; otherwise auto-format
-      if (suggestions.length > 0) {
-        handleSelect(suggestions[0].ticker)
-      } else {
+    const hasResults = open && suggestions.length > 0
+    if (e.key === 'ArrowDown' && hasResults) {
+      e.preventDefault()
+      setActiveIdx(i => (i + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp' && hasResults) {
+      e.preventDefault()
+      setActiveIdx(i => (i - 1 + suggestions.length) % suggestions.length)
+    } else if (e.key === 'Enter' && input.trim()) {
+      if (hasResults) handleSelect(suggestions[Math.min(activeIdx, suggestions.length - 1)].ticker)
+      else {
         const raw = input.trim().toUpperCase()
         handleSelect(!raw.includes('.') ? `${raw}.NS` : raw)
       }
-    }
-    if (e.key === 'Escape') { setOpen(false); inputRef.current?.blur() }
-    if (e.key === 'ArrowDown' && suggestions.length > 0) {
-      // Simple: select first suggestion on ArrowDown from input
-      handleSelect(suggestions[0].ticker)
+    } else if (e.key === 'Escape') {
+      setOpen(false); inputRef.current?.blur()
     }
   }
 
@@ -91,6 +103,8 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
           aria-label="Search for a stock"
           aria-autocomplete="list"
           aria-expanded={open && suggestions.length > 0}
+          aria-activedescendant={open && suggestions.length > 0 ? `search-opt-${activeIdx}` : undefined}
+          role="combobox"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
           {currentTicker && (
@@ -104,6 +118,7 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
 
       {open && suggestions.length > 0 && (
         <ul
+          ref={listRef}
           className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl
                      shadow-2xl overflow-hidden max-h-80 overflow-y-auto"
           role="listbox"
@@ -112,12 +127,14 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
           {suggestions.map((s, idx) => (
             <li
               key={s.ticker}
+              id={`search-opt-${idx}`}
               role="option"
-              aria-selected={false}
+              aria-selected={idx === activeIdx}
+              data-active={idx === activeIdx}
               onClick={() => handleSelect(s.ticker)}
-              className={`flex items-center justify-between px-4 py-3 cursor-pointer
-                         hover:bg-gray-700 transition-colors
-                         ${idx === 0 ? 'border-b border-gray-700/50' : ''}`}
+              onMouseEnter={() => setActiveIdx(idx)}
+              className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors
+                         ${idx === activeIdx ? 'bg-gray-700' : ''}`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="font-bold text-white text-sm font-mono w-24 shrink-0">
@@ -129,7 +146,7 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
             </li>
           ))}
           <li className="px-4 py-2 text-center text-xs text-gray-600 border-t border-gray-700">
-            Nifty 500 · Press Enter to load first result
+            Nifty 500 · <span className="hidden sm:inline">↑↓ to navigate · </span>Enter to load
           </li>
         </ul>
       )}

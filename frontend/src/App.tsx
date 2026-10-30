@@ -141,12 +141,12 @@ function Section({ label, open, onToggle, badge, children }: {
         className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900 hover:bg-gray-800/80 transition-colors text-left"
       >
         <div className="flex items-center gap-2.5">
-          <span className="text-sm font-semibold text-gray-200">{label}</span>
+          <span className={`text-sm font-semibold transition-colors ${open ? 'text-white' : 'text-gray-200'}`}>{label}</span>
           {badge}
         </div>
-        <span className={`text-gray-500 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-gray-500 text-xs transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
-      {open && <div className="bg-gray-950">{children}</div>}
+      {open && <div className="bg-gray-950 section-enter">{children}</div>}
     </div>
   )
 }
@@ -155,6 +155,8 @@ function Section({ label, open, onToggle, badge, children }: {
 const TICKER_ALIASES: Record<string, string> = {
   'ZOMATO.NS': 'ETERNAL.NS',
   'ZOMATO.BO': 'ETERNAL.BO',
+  'TATAMOTORS.NS': 'TMCV.NS',  // demerged Oct 2025 — CV entity kept the name
+  'TATAMOTORS.BO': 'TMCV.BO',
 }
 
 function resolveAlias(t: string): { ticker: string; renamed: string | null } {
@@ -431,9 +433,8 @@ export default function App() {
               </Section>
 
               <Section label="⚖️ Valuation" open={open.valuation} onToggle={() => toggleSection('valuation')}>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-3">
+                <div className="p-3">
                   <PanelBoundary name="Valuation"><ValuationPanel ticker={ticker} /></PanelBoundary>
-                  <PanelBoundary name="CashFlow"><CashFlowPanel ticker={ticker} /></PanelBoundary>
                 </div>
               </Section>
 

@@ -522,6 +522,62 @@ NIFTY500_STATIC: list[tuple[str, str, str]] = [
     ("ZYDUSWELL.NS", "Zydus Wellness Ltd.", "NSE"),
     ("ECLERX.NS", "eClerx Services Ltd.", "NSE"),
 
+    # ── Commonly searched mid/smallcaps not in Nifty 500 ──────────────────
+    ("SHAKTIPUMP.NS", "Shakti Pumps (India) Ltd.", "NSE"),
+    ("GNFC.NS", "Gujarat Narmada Valley Fertilizers & Chemicals Ltd.", "NSE"),
+    ("JYOTHYLAB.NS", "Jyothy Labs Ltd.", "NSE"),
+    ("FLUOROCHEM.NS", "Gujarat Fluorochemicals Ltd.", "NSE"),
+    ("GSFC.NS", "Gujarat State Fertilizers & Chemicals Ltd.", "NSE"),
+    ("HAPPSTMNDS.NS", "Happiest Minds Technologies Ltd.", "NSE"),
+    ("IRFC.NS", "Indian Railway Finance Corporation Ltd.", "NSE"),
+    ("JINDALSAW.NS", "Jindal Saw Ltd.", "NSE"),
+    ("LINDEINDIA.NS", "Linde India Ltd.", "NSE"),
+    ("MMTC.NS", "MMTC Ltd.", "NSE"),
+    ("MOTHERSUMI.NS", "Motherson Sumi Systems Ltd.", "NSE"),
+    ("NOCIL.NS", "NOCIL Ltd.", "NSE"),
+    ("ORIENTELEC.NS", "Orient Electric Ltd.", "NSE"),
+    ("RAYMOND.NS", "Raymond Ltd.", "NSE"),
+    ("RITES.NS", "RITES Ltd.", "NSE"),
+    ("STLTECH.NS", "Sterlite Technologies Ltd.", "NSE"),
+    ("SYMPHONY.NS", "Symphony Ltd.", "NSE"),
+    ("TEAMLEASE.NS", "TeamLease Services Ltd.", "NSE"),
+    ("TTML.NS", "Tata Teleservices (Maharashtra) Ltd.", "NSE"),
+    ("UJJIVANSFB.NS", "Ujjivan Small Finance Bank Ltd.", "NSE"),
+    ("VGUARD.NS", "V-Guard Industries Ltd.", "NSE"),
+    ("VAIBHAVGBL.NS", "Vaibhav Global Ltd.", "NSE"),
+    ("VSTIND.NS", "VST Industries Ltd.", "NSE"),
+    ("AARTIIND.NS", "Aarti Industries Ltd.", "NSE"),
+    ("ACCELYA.NS", "Accelya Solutions India Ltd.", "NSE"),
+    ("BALARAMCHIN.NS", "Balrampur Chini Mills Ltd.", "NSE"),
+    ("CIGNITITEC.NS", "Cigniti Technologies Ltd.", "NSE"),
+    ("CENTURYPLY.NS", "Century Plyboards (India) Ltd.", "NSE"),
+    ("FINEORG.NS", "Fine Organic Industries Ltd.", "NSE"),
+    ("GALAXYSURF.NS", "Galaxy Surfactants Ltd.", "NSE"),
+    ("GLAXO.NS", "GlaxoSmithKline Pharmaceuticals Ltd.", "NSE"),
+    ("GTLINFRA.NS", "GTL Infrastructure Ltd.", "NSE"),
+    ("HGINFRA.NS", "H.G. Infra Engineering Ltd.", "NSE"),
+    ("IOLCP.NS", "IOL Chemicals and Pharmaceuticals Ltd.", "NSE"),
+    ("JINDALSTEEL.NS", "Jindal Steel & Power Ltd.", "NSE"),
+    ("KSCL.NS", "Kaveri Seed Company Ltd.", "NSE"),
+    ("NAVNETEDUL.NS", "Navneet Education Ltd.", "NSE"),
+    ("NRBBEARING.NS", "NRB Bearings Ltd.", "NSE"),
+    ("PDSL.NS", "PDS Ltd.", "NSE"),
+    ("PGHL.NS", "Procter & Gamble Health Ltd.", "NSE"),
+    ("PRSMJOHNSN.NS", "Prism Johnson Ltd.", "NSE"),
+    ("RAJESHEXPO.NS", "Rajesh Exports Ltd.", "NSE"),
+    ("RESPONIND.NS", "Responsive Industries Ltd.", "NSE"),
+    ("RELAXO.NS", "Relaxo Footwears Ltd.", "NSE"),
+    ("ROSSARI.NS", "Rossari Biotech Ltd.", "NSE"),
+    ("SEQUENT.NS", "Sequent Scientific Ltd.", "NSE"),
+    ("SHREDIGCEM.NS", "Shree Digvijay Cement Co. Ltd.", "NSE"),
+    ("SUBROS.NS", "Subros Ltd.", "NSE"),
+    ("SURYAROSNI.NS", "Surya Roshni Ltd.", "NSE"),
+    ("TIDEWATER.NS", "Tide Water Oil Co. (India) Ltd.", "NSE"),
+    ("UNIVASTU.NS", "Univastu India Ltd.", "NSE"),
+    ("VENKEYS.NS", "Venky's (India) Ltd.", "NSE"),
+    ("VESUVIUS.NS", "Vesuvius India Ltd.", "NSE"),
+    ("WABAG.NS", "VA Tech Wabag Ltd.", "NSE"),
+
     # ── Nifty Smallcap 250 additions (stocks not already in Nifty 500) ─────
     # Source: NSE Nifty Smallcap 250 constituents (July 2026)
     ("PRIMEFOCUS.NS", "Prime Focus Ltd.", "NSE"),
@@ -941,10 +997,13 @@ async def startup_load():
 _ALIASES: dict[str, list[str]] = {
     "ZOMATO":   ["ETERNAL"],
     "ETERNAL":  ["ZOMATO"],
+    "TATAMOTORS": ["TMCV", "TMPV"],  # demerged Oct 2025 — old symbol is dead
+    "JYOTHI":   ["JYOTHYLAB"],   # common misspelling of "Jyothy Labs"
+    "JYOTHILABS": ["JYOTHYLAB"],
     "FLIPKART": ["MEESHO"],
     "HDFC":     ["HDFCBANK", "HDFCLIFE", "HDFCAMC", "HDBFS", "BAJAJHFL"],
     "ICICI":    ["ICICIBANK", "ICICIGI", "ICICIPRULI", "ICICIAMC"],
-    "TATA":     ["TCS", "TATASTEEL", "TATAPOWER", "TATAMOTORS", "TATACHEM",
+    "TATA":     ["TCS", "TATASTEEL", "TATAPOWER", "TMCV", "TMPV", "TATACHEM",
                  "TATACONSUM", "TATAELXSI", "TATAINVEST", "TATATECH", "TATACOMM"],
     "ADANI":    ["ADANIENT", "ADANIGREEN", "ADANIPORTS", "ADANIPOWER", "ATGL",
                  "ADANIENSOL", "JSWENERGY"],
@@ -963,7 +1022,7 @@ _ALIASES: dict[str, list[str]] = {
                  "NEWGEN", "LATENTVIEW", "INTELLECT", "ZENSARTECH", "SONATSOFTW"],
     "INFRA":    ["LT", "RVNL", "IRCON", "IRFC", "NBCC", "KEC", "KPIL",
                  "AFCONS", "ENGINERSIN", "TITAGARH", "GRSE", "RITES"],
-    "AUTO":     ["MARUTI", "TATAMOTORS", "M&M", "BAJAJ-AUTO", "HEROMOTOCO",
+    "AUTO":     ["MARUTI", "TMCV", "M&M", "BAJAJ-AUTO", "HEROMOTOCO",
                  "EICHERMOT", "TVSMOTOR", "ASHOKLEY", "MOTHERSON", "BALKRISIND",
                  "APOLLOTYRE", "CEATLTD", "JKTYRE", "FORCEMOT", "BHARATFORG"],
     "POWER":    ["NTPC", "POWERGRID", "TATAPOWER", "ADANIPOWER", "JSWENERGY",
@@ -1064,6 +1123,11 @@ def _score(ticker: str, name: str, q_words: list[str]) -> int:
     # Bonus: more words matched = tighter result
     if len(q_words) > 1:
         total += 20
+        # Phrase bonus: all query words forming the name's opening phrase
+        # ("TATA MOTORS" → "Tata Motors Ltd.") is the strongest name signal —
+        # it must outrank a single-word symbol-prefix match (TATASTEEL).
+        if name_upper.startswith(" ".join(q_words)):
+            total += 90
 
     return total
 
@@ -1073,8 +1137,15 @@ async def search_tickers(q: str = Query(..., min_length=1, max_length=60)):
     q_clean   = q.strip().upper()
     q_stripped = re.sub(r'\.(NS|BO)$', '', q_clean).strip()
 
-    # Split into words, remove noise
-    raw_words = [w for w in re.split(r'[\s,&]+', q_stripped) if w]
+    # Split into words, remove noise — also split on camelCase / run-together words
+    # e.g. "Shaktipumps" → "SHAKTI PUMPS", "JyothiLabs" → "JYOTHI LABS"
+    # Strategy: insert space before uppercase letters that follow lowercase, then split
+    spaced = re.sub(r'([a-z])([A-Z])', r'\1 \2', q.strip())   # camelCase
+    spaced = re.sub(r'([A-Z]{2,})([A-Z][a-z])', r'\1 \2', spaced)  # e.g. GNFCLtd → GNFC Ltd
+    q_expanded = spaced.strip().upper()
+
+    raw_words = [w for w in re.split(r'[\s,&]+', q_expanded) if w]
+
     # Deduplicate while preserving order
     seen_w: set[str] = set()
     q_words = [w for w in raw_words if not (w in seen_w or seen_w.add(w))]  # type: ignore[func-returns-value]
@@ -1084,22 +1155,48 @@ async def search_tickers(q: str = Query(..., min_length=1, max_length=60)):
     if cached:
         return cached
 
-    # Expand aliases — collect extra symbols to boost
-    alias_boosts: set[str] = set()
+    # Expand aliases — collect extra symbols to boost, remembering the position
+    # each symbol appeared at (earlier in the list = stronger intent, used as a
+    # tie-break among equally-matching aliases, e.g. "HDFC" → HDFCBANK first)
+    alias_boosts: dict[str, int] = {}
     for word in q_words:
-        for alias_syms in _ALIASES.get(word, []):
-            alias_boosts.add(alias_syms)
+        for idx, alias_sym in enumerate(_ALIASES.get(word, [])):
+            if alias_sym not in alias_boosts or idx < alias_boosts[alias_sym]:
+                alias_boosts[alias_sym] = idx
 
-    # Score every ticker
+    # Score every ticker — try all word subsets for run-together queries
     scored: list[tuple[int, tuple[str, str, str]]] = []
     for entry in _TICKERS:
         sym_clean_entry = entry[0].replace(".NS", "").replace(".BO", "").upper()
 
-        # Alias boost: if this ticker matches an alias, treat single-word query against its symbol
+        # Try full word list first; if 0, try each word individually (handles run-together)
+        s = _score(entry[0], entry[1], q_words)
+        if s == 0:
+            candidates = [w for w in q_words if len(w) >= 3]
+            s = max((_score(entry[0], entry[1], [w]) for w in candidates), default=0)
+            # All-lowercase run-together name ("shaktipumps"): camelCase split
+            # produced nothing, so try every split point of the single token
+            # and keep the best two-word match
+            if s == 0 and len(q_words) == 1 and len(q_words[0]) >= 6:
+                token = q_words[0]
+                for i in range(3, len(token) - 2):
+                    sc = _score(entry[0], entry[1], [token[:i], token[i:]])
+                    if sc > s:
+                        s = sc
+
+        # Alias boost: reward aliases on top of a real text match. Only when the
+        # ticker has NO textual relation to any query word (rename-style alias,
+        # e.g. "ZOMATO" → ETERNAL) do we surface it via its own symbol score —
+        # otherwise category aliases ("BANK" → 18 banks) would all outrank
+        # genuine matches on a query-independent score.
         if sym_clean_entry in alias_boosts:
-            s = _score(entry[0], entry[1], [sym_clean_entry]) + 40
-        else:
-            s = _score(entry[0], entry[1], q_words)
+            if s > 0:
+                s += 40 - min(alias_boosts[sym_clean_entry], 8)
+            elif all(
+                _score(entry[0], entry[1], [w]) == 0
+                for w in q_words if len(w) >= 2
+            ):
+                s = _score(entry[0], entry[1], [sym_clean_entry]) + 40
 
         if s > 0:
             scored.append((s, entry))

@@ -36,7 +36,7 @@ export function FundamentalsPanel({ ticker }: Props) {
     { label: 'EPS (TTM)', value: fundamentals.eps != null ? `${SYM}${fmt(fundamentals.eps)}` : 'N/A' },
     { label: 'Market Cap', value: fmtCurrency(fundamentals.market_cap) },
     { label: 'Beta', value: fmt(fundamentals.beta, 2) },
-    { label: 'Dividend Yield', value: fundamentals.dividend_yield != null ? fmtPct(fundamentals.dividend_yield) : 'N/A' },
+    { label: 'Dividend Yield', value: fundamentals.dividend_yield != null ? `${fmt(fundamentals.dividend_yield)}%` : 'N/A' },
     { label: 'Price / Book', value: fmt(fundamentals.price_to_book, 2) },
     { label: 'Debt / Equity', value: fmt(fundamentals.debt_to_equity, 2) },
     { label: 'ROE', value: fundamentals.roe != null ? fmtPct(fundamentals.roe) : 'N/A' },

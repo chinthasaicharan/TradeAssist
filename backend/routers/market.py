@@ -97,6 +97,19 @@ def safe_int(val: Any) -> int | None:
         return None
 
 
+def div_yield_pct(info: dict) -> float | None:
+    """Dividend yield normalised to percent.
+
+    yfinance >= 1.x returns dividendYield already in percent (e.g. 1.92 for
+    1.92%); older versions returned a fraction (0.0192). Values <= 0.15 are
+    only plausible as a fraction — 0.15% yields are rarer than 15% ones.
+    """
+    v = safe_float(info.get("dividendYield"))
+    if v is None:
+        return None
+    return v * 100 if v <= 0.15 else v
+
+
 def clean_hist(hist: pd.DataFrame) -> pd.DataFrame:
     """Drop rows with NaN in OHLCV columns so indicator math never sees NaN."""
     cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in hist.columns]
@@ -154,7 +167,7 @@ async def get_fundamentals(ticker: str):
         pe_ratio=safe_float(info.get("trailingPE") or info.get("forwardPE")),
         eps=safe_float(info.get("trailingEps")),
         market_cap=safe_int(info.get("marketCap")),
-        dividend_yield=safe_float(info.get("dividendYield")),
+        dividend_yield=div_yield_pct(info),
         price_to_book=safe_float(info.get("priceToBook")),
         debt_to_equity=safe_float(info.get("debtToEquity")),
         roe=safe_float(info.get("returnOnEquity")),
@@ -209,7 +222,7 @@ async def get_stock_summary(ticker: str):
         pe_ratio=safe_float(info.get("trailingPE") or info.get("forwardPE")),
         eps=safe_float(info.get("trailingEps")),
         market_cap=safe_int(info.get("marketCap")),
-        dividend_yield=safe_float(info.get("dividendYield")),
+        dividend_yield=div_yield_pct(info),
         price_to_book=safe_float(info.get("priceToBook")),
         debt_to_equity=safe_float(info.get("debtToEquity")),
         roe=safe_float(info.get("returnOnEquity")),
