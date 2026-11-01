@@ -64,13 +64,13 @@ function EditorModal({ initial, onClose, onSaved }: EditorModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-4xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-4xl bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700 shrink-0">
           <h2 className="text-white font-bold text-base">
             {initial && !initial.is_builtin ? 'Edit Strategy' : 'New Strategy'}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
             <IconClose />
           </button>
         </div>
@@ -79,21 +79,21 @@ function EditorModal({ initial, onClose, onSaved }: EditorModalProps) {
           {/* Name + Description */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wide">Strategy Name *</label>
+              <label className="block text-xs text-zinc-400 mb-1 font-semibold uppercase tracking-wide">Strategy Name *</label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. My Momentum Strategy"
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wide">Description</label>
+              <label className="block text-xs text-zinc-400 mb-1 font-semibold uppercase tracking-wide">Description</label>
               <input
                 value={desc}
                 onChange={e => setDesc(e.target.value)}
                 placeholder="Brief description (optional)"
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
               />
             </div>
           </div>
@@ -101,8 +101,8 @@ function EditorModal({ initial, onClose, onSaved }: EditorModalProps) {
           {/* Pine Script Editor */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Pine Script v6 *</label>
-              <span className="text-xs text-gray-600 font-mono">{script.split('\n').length} lines</span>
+              <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wide">Pine Script v6 *</label>
+              <span className="text-xs text-zinc-600 font-mono">{script.split('\n').length} lines</span>
             </div>
             <textarea
               ref={textareaRef}
@@ -111,7 +111,7 @@ function EditorModal({ initial, onClose, onSaved }: EditorModalProps) {
               onKeyDown={handleKeyDown}
               spellCheck={false}
               rows={22}
-              className="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-sm text-emerald-300 font-mono placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-y leading-relaxed"
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-emerald-300 font-mono placeholder-zinc-600 focus:outline-none focus:border-purple-500 resize-y leading-relaxed"
               style={{ fontFamily: "'Fira Code', 'Cascadia Code', 'Consolas', monospace", tabSize: 4 }}
             />
           </div>
@@ -122,13 +122,13 @@ function EditorModal({ initial, onClose, onSaved }: EditorModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-700 shrink-0">
-          <p className="text-xs text-gray-600">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-zinc-700 shrink-0">
+          <p className="text-xs text-zinc-600">
             Tab inserts 4 spaces · Pine Script v6 syntax
           </p>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
+              className="px-4 py-2 rounded-lg text-sm text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 transition-colors">
               Cancel
             </button>
             <button
@@ -176,7 +176,7 @@ function StrategyCard({ strategy, ticker, onEdit, onFork, onDelete }: CardProps)
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+    <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden">
       {/* Card Header */}
       <div className="px-4 py-3 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -189,9 +189,9 @@ function StrategyCard({ strategy, ticker, onEdit, onFork, onDelete }: CardProps)
             )}
           </div>
           {strategy.description && (
-            <p className="text-xs text-gray-400 mt-1 line-clamp-2">{strategy.description}</p>
+            <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{strategy.description}</p>
           )}
-          <p className="text-xs text-gray-600 mt-1 font-mono">
+          <p className="text-xs text-zinc-600 mt-1 font-mono">
             {strategy.script.split('\n').length} lines · Pine Script v6
           </p>
         </div>
@@ -201,21 +201,21 @@ function StrategyCard({ strategy, ticker, onEdit, onFork, onDelete }: CardProps)
           <button
             onClick={() => openInTradingView(strategy.script, ticker)}
             title="Open in TradingView (script copied to clipboard)"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-950 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-400 hover:bg-blue-950 transition-colors"
           >
             <IconTV />
           </button>
           <button
             onClick={copyScript}
             title={copied ? 'Copied!' : 'Copy script'}
-            className={`p-1.5 rounded-lg transition-colors ${copied ? 'text-emerald-400 bg-emerald-950' : 'text-gray-400 hover:text-emerald-400 hover:bg-emerald-950'}`}
+            className={`p-1.5 rounded-lg transition-colors ${copied ? 'text-emerald-400 bg-emerald-950' : 'text-zinc-400 hover:text-emerald-400 hover:bg-emerald-950'}`}
           >
             <IconCopy />
           </button>
           <button
             onClick={() => onFork(strategy)}
             title="Fork (create editable copy)"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-950 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-400 hover:bg-amber-950 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/>
@@ -228,14 +228,14 @@ function StrategyCard({ strategy, ticker, onEdit, onFork, onDelete }: CardProps)
               <button
                 onClick={() => onEdit(strategy)}
                 title="Edit strategy"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
               >
                 <IconEdit />
               </button>
               <button
                 onClick={() => onDelete(strategy)}
                 title="Delete strategy"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-950 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950 transition-colors"
               >
                 <IconTrash />
               </button>
@@ -245,23 +245,23 @@ function StrategyCard({ strategy, ticker, onEdit, onFork, onDelete }: CardProps)
       </div>
 
       {/* Preview toggle */}
-      <div className="border-t border-gray-700">
+      <div className="border-t border-zinc-700">
         <button
           onClick={() => setExpanded(v => !v)}
-          className="w-full px-4 py-2 text-left text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-750 transition-colors flex items-center justify-between"
+          className="w-full px-4 py-2 text-left text-xs text-zinc-500 hover:text-zinc-300 hover:bg-gray-750 transition-colors flex items-center justify-between"
         >
           <span>{expanded ? 'Hide script preview' : 'Show script preview'}</span>
           <span className={`transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
         </button>
         {expanded && (
           <div className="relative">
-            <pre className="px-4 py-3 text-xs text-emerald-300 font-mono bg-gray-950 overflow-x-auto leading-relaxed max-h-64 overflow-y-auto"
+            <pre className="px-4 py-3 text-xs text-emerald-300 font-mono bg-zinc-950 overflow-x-auto leading-relaxed max-h-64 overflow-y-auto"
               style={{ fontFamily: "'Fira Code', 'Cascadia Code', 'Consolas', monospace" }}>
               {strategy.script}
             </pre>
             <button
               onClick={copyScript}
-              className="absolute top-2 right-2 px-2 py-1 rounded text-xs bg-gray-800 border border-gray-600 text-gray-400 hover:text-white transition-colors"
+              className="absolute top-2 right-2 px-2 py-1 rounded text-xs bg-zinc-800 border border-zinc-600 text-zinc-400 hover:text-white transition-colors"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>
@@ -330,7 +330,7 @@ export function PineScriptPanel({ ticker, onClose }: Props) {
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-700 transition-colors"
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-700 transition-colors"
               title="Close"
             >
               <IconClose />
@@ -349,12 +349,12 @@ export function PineScriptPanel({ ticker, onClose }: Props) {
         {/* Strategy list */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1,2].map(i => <div key={i} className="h-20 bg-gray-800 rounded-xl animate-pulse" />)}
+            {[1,2].map(i => <div key={i} className="h-20 bg-zinc-800 rounded-xl animate-pulse" />)}
           </div>
         ) : strategies.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-gray-500 text-sm">No strategies yet.</p>
-            <p className="text-gray-600 text-xs mt-1">Click <strong className="text-gray-400">+ New Strategy</strong> to create your first one.</p>
+            <p className="text-zinc-500 text-sm">No strategies yet.</p>
+            <p className="text-zinc-600 text-xs mt-1">Click <strong className="text-zinc-400">+ New Strategy</strong> to create your first one.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -384,14 +384,14 @@ export function PineScriptPanel({ ticker, onClose }: Props) {
       {/* Delete confirm modal */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-2xl p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl p-6 shadow-2xl space-y-4">
             <h3 className="text-white font-bold">Delete strategy?</h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-zinc-400">
               "<span className="text-white">{deleteTarget.name}</span>" will be permanently deleted.
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white border border-gray-700 transition-colors">
+                className="px-4 py-2 rounded-lg text-sm text-zinc-400 hover:text-white border border-zinc-700 transition-colors">
                 Cancel
               </button>
               <button
@@ -407,7 +407,7 @@ export function PineScriptPanel({ ticker, onClose }: Props) {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-gray-800 border border-gray-600 text-white text-sm rounded-xl px-4 py-3 shadow-xl animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-6 right-6 z-50 bg-zinc-800 border border-zinc-600 text-white text-sm rounded-xl px-4 py-3 shadow-xl animate-in fade-in slide-in-from-bottom-2">
           {toast}
         </div>
       )}

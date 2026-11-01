@@ -14,12 +14,12 @@ function BiasCard({ label, bias }: { label: string; bias: 'bullish' | 'bearish' 
   const cfg = {
     bullish: { bg: 'bg-emerald-900', text: 'text-emerald-300', icon: '▲', border: 'border-emerald-700' },
     bearish: { bg: 'bg-red-900', text: 'text-red-300', icon: '▼', border: 'border-red-700' },
-    neutral: { bg: 'bg-gray-800', text: 'text-gray-300', icon: '→', border: 'border-gray-700' },
+    neutral: { bg: 'bg-zinc-800', text: 'text-zinc-300', icon: '→', border: 'border-zinc-700' },
   }[bias]
 
   return (
     <div className={`${cfg.bg} border ${cfg.border} rounded-xl p-4 text-center`}>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className="text-xs text-zinc-400 mb-1">{label}</p>
       <p className={`text-2xl font-black ${cfg.text}`}>{cfg.icon}</p>
       <p className={`text-sm font-bold capitalize ${cfg.text}`}>{bias}</p>
     </div>
@@ -31,17 +31,17 @@ function SignalRow({ signal }: { signal: TrendSignal }) {
     : signal.signal === 'bearish' ? 'badge-bearish' : 'badge-neutral'
 
   return (
-    <div className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2.5 text-sm">
+    <div className="flex items-center justify-between bg-zinc-800 rounded-lg px-3 py-2.5 text-sm">
       <div className="flex items-center gap-2">
         <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
           signal.timeframe === 'short' ? 'bg-blue-900 text-blue-400' : 'bg-purple-900 text-purple-400'
         }`}>
           {signal.timeframe === 'short' ? 'ST' : 'LT'}
         </span>
-        <span className="text-gray-300 font-medium">{signal.indicator}</span>
+        <span className="text-zinc-300 font-medium">{signal.indicator}</span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-gray-400 text-xs">{signal.value}</span>
+        <span className="text-zinc-400 text-xs">{signal.value}</span>
         <span className={badgeCls}>{signal.signal}</span>
       </div>
     </div>
@@ -51,8 +51,8 @@ function SignalRow({ signal }: { signal: TrendSignal }) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs shadow-xl">
-      <p className="text-gray-400 mb-2">{label}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl">
+      <p className="text-zinc-400 mb-2">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-3">
           <span>{p.name}:</span>
@@ -136,7 +136,7 @@ export function TrendPanel({ ticker }: Props) {
           <div className="space-y-1.5">
             {longSignals.map((s, i) => <SignalRow key={i} signal={s} />)}
             {longSignals.length === 0 && (
-              <p className="text-xs text-gray-600">Insufficient data for long-term signals</p>
+              <p className="text-xs text-zinc-600">Insufficient data for long-term signals</p>
             )}
           </div>
         </div>

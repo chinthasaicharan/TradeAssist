@@ -11,7 +11,7 @@ const VERDICT_CFG = {
   'Strong Buy Signal': { bg: 'bg-emerald-950', border: 'border-emerald-500', text: 'text-emerald-300', dot: '#10b981', icon: '🟢' },
   'Buy Signal':        { bg: 'bg-emerald-950', border: 'border-emerald-700', text: 'text-emerald-400', dot: '#34d399', icon: '🟢' },
   'Watch':             { bg: 'bg-amber-950',   border: 'border-amber-700',   text: 'text-amber-300',   dot: '#fbbf24', icon: '🟡' },
-  'Neutral':           { bg: 'bg-gray-800',    border: 'border-gray-700',    text: 'text-gray-400',    dot: '#6b7280', icon: '⚪' },
+  'Neutral':           { bg: 'bg-zinc-800',    border: 'border-zinc-700',    text: 'text-zinc-400',    dot: '#6b7280', icon: '⚪' },
   'Sell Signal':       { bg: 'bg-red-950',     border: 'border-red-700',     text: 'text-red-400',     dot: '#ef4444', icon: '🔴' },
 } as const
 
@@ -20,7 +20,7 @@ function ScoreBar({ score }: { score: number }) {
   const color = score >= 75 ? '#10b981' : score >= 60 ? '#34d399' : score >= 50 ? '#fbbf24' : score >= 35 ? '#f97316' : '#ef4444'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: color }} />
       </div>
       <span className="text-xs font-bold tabular-nums" style={{ color }}>{score}</span>
@@ -84,36 +84,36 @@ function WatchlistBuilder({ tickers, onChange }: { tickers: string[]; onChange: 
   return (
     <div ref={containerRef} className="relative">
       <div
-        className="flex flex-wrap gap-1.5 items-center bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 min-h-[42px] cursor-text focus-within:border-brand-500 transition-colors"
+        className="flex flex-wrap gap-1.5 items-center bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 min-h-[42px] cursor-text focus-within:border-brand-500 transition-colors"
         onClick={() => inputRef.current?.focus()}
       >
         {tickers.map(t => (
-          <span key={t} className="flex items-center gap-1 bg-gray-700 text-gray-200 text-xs font-mono px-2 py-1 rounded-full">
+          <span key={t} className="flex items-center gap-1 bg-zinc-700 text-zinc-200 text-xs font-mono px-2 py-1 rounded-full">
             {t.replace('.NS','').replace('.BO','')}
-            <button onClick={e => { e.stopPropagation(); remove(t) }} className="text-gray-500 hover:text-red-400">×</button>
+            <button onClick={e => { e.stopPropagation(); remove(t) }} className="text-zinc-500 hover:text-red-400">×</button>
           </span>
         ))}
         <div className="relative flex-1 min-w-[140px] flex items-center gap-1.5">
-          {isFetching && <svg className="w-3 h-3 text-gray-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+          {isFetching && <svg className="w-3 h-3 text-zinc-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
           <input ref={inputRef} value={input} onChange={e => { setInput(e.target.value); setOpen(true) }}
             onFocus={() => { if (input) setOpen(true) }} onKeyDown={handleKeyDown}
             placeholder={tickers.length === 0 ? 'Search stocks to add…' : 'Add more…'}
-            className="bg-transparent text-sm text-white placeholder-gray-600 outline-none w-full" />
+            className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full" />
         </div>
         {tickers.length > 0 && (
-          <button onClick={() => onChange([])} className="text-xs text-gray-600 hover:text-gray-400 px-1 shrink-0">Clear</button>
+          <button onClick={() => onChange([])} className="text-xs text-zinc-600 hover:text-zinc-400 px-1 shrink-0">Clear</button>
         )}
       </div>
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+        <ul className="absolute z-50 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
           {suggestions.map((s, idx) => {
             const already = tickers.includes(s.ticker)
             return (
               <li key={s.ticker} onClick={() => !already && add(s.ticker)}
-                className={`flex items-center justify-between px-3 py-2.5 text-sm transition-colors ${already ? 'opacity-40 cursor-default' : 'cursor-pointer hover:bg-gray-700'} ${idx !== suggestions.length - 1 ? 'border-b border-gray-700/50' : ''}`}>
+                className={`flex items-center justify-between px-3 py-2.5 text-sm transition-colors ${already ? 'opacity-40 cursor-default' : 'cursor-pointer hover:bg-zinc-700'} ${idx !== suggestions.length - 1 ? 'border-b border-zinc-700/50' : ''}`}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-bold text-white font-mono w-20 shrink-0 text-xs">{s.ticker.replace('.NS','').replace('.BO','')}</span>
-                  <span className="text-gray-400 text-xs truncate">{s.name}</span>
+                  <span className="text-zinc-400 text-xs truncate">{s.name}</span>
                 </div>
                 {already && <span className="text-xs text-brand-500 shrink-0">✓</span>}
               </li>
@@ -136,14 +136,14 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
       {/* Main row */}
       <button
         onClick={() => setExpanded(v => !v)}
-        className={`w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-800/60 transition-colors ${cfg.bg}`}
+        className={`w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-zinc-800/60 transition-colors ${cfg.bg}`}
       >
         {/* Alert glow dot */}
         {isAlert && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" title="BUY Alert" />}
         {/* Ticker */}
         <div className="w-24 shrink-0">
           <p className="text-sm font-bold text-white font-mono">{sig.ticker.replace('.NS','').replace('.BO','')}</p>
-          <p className="text-[10px] text-gray-500 truncate max-w-[90px]">{sig.name.split(' ').slice(0,2).join(' ')}</p>
+          <p className="text-[10px] text-zinc-500 truncate max-w-[90px]">{sig.name.split(' ').slice(0,2).join(' ')}</p>
         </div>
         {/* Price */}
         <div className="w-20 shrink-0">
@@ -155,12 +155,12 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
         {/* Score */}
         <div className="w-28 shrink-0 hidden sm:block">
           <ScoreBar score={sig.smart_money_score} />
-          <p className="text-[10px] text-gray-500 mt-0.5">SMC Score</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">SMC Score</p>
         </div>
         {/* Verdict */}
         <div className="flex-1 min-w-0">
           <p className={`text-xs font-bold ${cfg.text}`}>{cfg.icon} {sig.verdict}</p>
-          <p className="text-[10px] text-gray-500 truncate">{sig.summary}</p>
+          <p className="text-[10px] text-zinc-500 truncate">{sig.summary}</p>
         </div>
         {/* Badges */}
         <div className="flex flex-wrap gap-1 shrink-0 hidden md:flex">
@@ -169,19 +169,19 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
           {sig.sweep_reversal && <Pill label="Sweep ✓" color="bg-purple-900 text-purple-300" />}
           {sig.high_volume_alert && <Pill label={`Vol ${sig.volume_vs_avg_1m}×`} color="bg-amber-900 text-amber-300" />}
         </div>
-        <span className={`text-gray-600 text-xs transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-zinc-600 text-xs transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="bg-gray-900/80 border-t border-gray-800 px-4 py-3 space-y-3">
+        <div className="bg-zinc-900/80 border-t border-zinc-800 px-4 py-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
             {/* Order Blocks */}
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Order Blocks</p>
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Order Blocks</p>
               {sig.order_blocks.length === 0
-                ? <p className="text-xs text-gray-600">None detected</p>
+                ? <p className="text-xs text-zinc-600">None detected</p>
                 : sig.order_blocks.slice(0, 3).map((ob, i) => (
                   <div key={i} className={`text-xs rounded px-2 py-1.5 ${ob.type === 'bullish' ? 'bg-emerald-950 border border-emerald-800' : 'bg-red-950 border border-red-900'}`}>
                     <div className="flex items-center justify-between">
@@ -190,12 +190,12 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
                       </span>
                       <div className="flex gap-1">
                         {ob.fresh    && <Pill label="Fresh"    color="bg-emerald-900 text-emerald-400" />}
-                        {ob.tested   && <Pill label="Tested"   color="bg-gray-700 text-gray-400" />}
-                        <Pill label={ob.strength} color="bg-gray-800 text-gray-300" />
+                        {ob.tested   && <Pill label="Tested"   color="bg-zinc-700 text-zinc-400" />}
+                        <Pill label={ob.strength} color="bg-zinc-800 text-zinc-300" />
                       </div>
                     </div>
-                    <p className="text-gray-300 mt-0.5">{SYM}{fmt(ob.low)} – {SYM}{fmt(ob.high)}</p>
-                    <p className="text-gray-600 text-[10px]">{ob.date}</p>
+                    <p className="text-zinc-300 mt-0.5">{SYM}{fmt(ob.low)} – {SYM}{fmt(ob.high)}</p>
+                    <p className="text-zinc-600 text-[10px]">{ob.date}</p>
                   </div>
                 ))
               }
@@ -203,19 +203,19 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
 
             {/* Fair Value Gaps */}
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Fair Value Gaps</p>
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Fair Value Gaps</p>
               {sig.fvg_zones.length === 0
-                ? <p className="text-xs text-gray-600">None detected</p>
+                ? <p className="text-xs text-zinc-600">None detected</p>
                 : sig.fvg_zones.slice(0, 3).map((fvg, i) => (
                   <div key={i} className={`text-xs rounded px-2 py-1.5 ${fvg.type === 'bullish' ? 'bg-blue-950 border border-blue-900' : 'bg-orange-950 border border-orange-900'}`}>
                     <div className="flex items-center justify-between">
                       <span className={`font-bold ${fvg.type === 'bullish' ? 'text-blue-400' : 'text-orange-400'}`}>
                         {fvg.type === 'bullish' ? '▲' : '▼'} {fvg.type.toUpperCase()} FVG
                       </span>
-                      {fvg.filled && <Pill label="Filled" color="bg-gray-700 text-gray-500" />}
+                      {fvg.filled && <Pill label="Filled" color="bg-zinc-700 text-zinc-500" />}
                     </div>
-                    <p className="text-gray-300 mt-0.5">{SYM}{fmt(fvg.bottom)} – {SYM}{fmt(fvg.top)}</p>
-                    <p className="text-gray-600 text-[10px]">{fvg.date}</p>
+                    <p className="text-zinc-300 mt-0.5">{SYM}{fmt(fvg.bottom)} – {SYM}{fmt(fvg.top)}</p>
+                    <p className="text-zinc-600 text-[10px]">{fvg.date}</p>
                   </div>
                 ))
               }
@@ -223,9 +223,9 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
 
             {/* Liquidity Sweeps */}
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Liquidity Sweeps</p>
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Liquidity Sweeps</p>
               {sig.liquidity_sweeps.length === 0
-                ? <p className="text-xs text-gray-600">None detected</p>
+                ? <p className="text-xs text-zinc-600">None detected</p>
                 : sig.liquidity_sweeps.slice(0, 3).map((sw, i) => (
                   <div key={i} className={`text-xs rounded px-2 py-1.5 ${sw.type === 'sell_side' ? 'bg-purple-950 border border-purple-900' : 'bg-rose-950 border border-rose-900'}`}>
                     <div className="flex items-center justify-between">
@@ -234,8 +234,8 @@ function SMCRow({ sig, onSelect }: { sig: SmartMoneySignal; onSelect: (t: string
                       </span>
                       {sw.reversed && <Pill label="Reversed ✓" color="bg-emerald-900 text-emerald-400" />}
                     </div>
-                    <p className="text-gray-300 mt-0.5">Level: {SYM}{fmt(sw.level)}</p>
-                    <p className="text-gray-600 text-[10px]">{sw.date}</p>
+                    <p className="text-zinc-300 mt-0.5">Level: {SYM}{fmt(sw.level)}</p>
+                    <p className="text-zinc-600 text-[10px]">{sw.date}</p>
                   </div>
                 ))
               }
@@ -302,7 +302,7 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
               </span>
             )}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-0.5">
             Order Blocks · Fair Value Gaps · Liquidity Sweeps · 1-Month High Volume
           </p>
         </div>
@@ -319,19 +319,19 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
       <div className="flex flex-wrap gap-3 items-center">
         {/* Custom watchlist toggle */}
         <label className="flex items-center gap-2 cursor-pointer" onClick={() => setUseCustom(v => !v)}>
-          <div className={`w-8 h-4 rounded-full relative transition-colors ${useCustom ? 'bg-brand-600' : 'bg-gray-700'}`}>
+          <div className={`w-8 h-4 rounded-full relative transition-colors ${useCustom ? 'bg-brand-600' : 'bg-zinc-700'}`}>
             <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${useCustom ? 'left-4' : 'left-0.5'}`} />
           </div>
-          <span className="text-xs text-gray-400">Custom watchlist</span>
+          <span className="text-xs text-zinc-400">Custom watchlist</span>
         </label>
-        {!useCustom && <span className="text-xs text-gray-600">Default: Nifty 50</span>}
+        {!useCustom && <span className="text-xs text-zinc-600">Default: Nifty 50</span>}
 
         {/* Min score filter */}
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-gray-500">Min score</span>
+          <span className="text-xs text-zinc-500">Min score</span>
           {[0, 40, 60].map(s => (
             <button key={s} onClick={() => setMinScore(s)}
-              className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${minScore === s ? 'bg-brand-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${minScore === s ? 'bg-brand-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}>
               {s === 0 ? 'All' : `${s}+`}
             </button>
           ))}
@@ -342,17 +342,17 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
       {useCustom && (
         <div className="space-y-1">
           <WatchlistBuilder tickers={customTickers} onChange={setCustomTickers} />
-          {customTickers.length === 0 && <p className="text-xs text-gray-600">Add stocks above to scan them</p>}
+          {customTickers.length === 0 && <p className="text-xs text-zinc-600">Add stocks above to scan them</p>}
         </div>
       )}
 
       {/* Stats bar */}
       {data && !isLoading && (
-        <div className="flex items-center gap-4 text-xs flex-wrap bg-gray-800/50 rounded-lg px-3 py-2">
-          <span className="text-gray-500">Scanned <span className="text-white font-bold">{data.scanned}</span></span>
+        <div className="flex items-center gap-4 text-xs flex-wrap bg-zinc-800/50 rounded-lg px-3 py-2">
+          <span className="text-zinc-500">Scanned <span className="text-white font-bold">{data.scanned}</span></span>
           <span className="text-emerald-400 font-semibold">🟢 {data.buy_count} buy signals</span>
           {alertCount > 0 && <span className="text-emerald-300 font-bold animate-pulse">⚡ {alertCount} OB alerts</span>}
-          {updatedAt && <span className="text-gray-600 ml-auto">Updated {updatedAt}</span>}
+          {updatedAt && <span className="text-zinc-600 ml-auto">Updated {updatedAt}</span>}
         </div>
       )}
 
@@ -361,7 +361,7 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
         <div className="flex gap-1.5">
           {(['all', 'buy', 'watch'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${filter === f ? 'bg-brand-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${filter === f ? 'bg-brand-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}>
               {f === 'all' ? `All (${allResults.length})` : f === 'buy' ? `Buy (${allResults.filter(r => r.verdict.includes('Buy')).length})` : `Watch (${allResults.filter(r => r.verdict === 'Watch').length})`}
             </button>
           ))}
@@ -371,8 +371,8 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
       {/* Loading */}
       {(isLoading || isFetching) && allResults.length === 0 && (
         <div className="space-y-2">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-800 rounded-xl animate-pulse" />)}
-          <p className="text-xs text-gray-600 text-center">Analysing Smart Money indicators…</p>
+          {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-zinc-800 rounded-xl animate-pulse" />)}
+          <p className="text-xs text-zinc-600 text-center">Analysing Smart Money indicators…</p>
         </div>
       )}
 
@@ -380,8 +380,8 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
       {!hasScanned && (
         <div className="text-center py-10 space-y-2">
           <p className="text-4xl">🧠</p>
-          <p className="text-gray-400 text-sm font-semibold">Smart Money Concept Scanner</p>
-          <p className="text-gray-600 text-xs max-w-sm mx-auto">
+          <p className="text-zinc-400 text-sm font-semibold">Smart Money Concept Scanner</p>
+          <p className="text-zinc-600 text-xs max-w-sm mx-auto">
             Detects Order Blocks, Fair Value Gaps, and Liquidity Sweeps across Nifty 50.<br />
             Alerts fire when price is retesting a bullish Order Block.
           </p>
@@ -395,7 +395,7 @@ export function SmartMoneyPanel({ onSelectTicker }: Props) {
       {/* Empty */}
       {!isLoading && !isFetching && filtered.length === 0 && data && (
         <div className="text-center py-8">
-          <p className="text-gray-500 text-sm">No results for this filter</p>
+          <p className="text-zinc-500 text-sm">No results for this filter</p>
         </div>
       )}
 

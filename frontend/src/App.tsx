@@ -28,11 +28,11 @@ import { getRecommendation, getSwing } from './api'
 
 // ── Buy/Sell badge shown inline on the section header ─────────────────────
 const SIGNAL_STYLE: Record<string, string> = {
-  'Strong Buy':  'bg-emerald-900 text-emerald-300 border-emerald-600',
-  'Buy':         'bg-emerald-950 text-emerald-400 border-emerald-700',
-  'Hold':        'bg-gray-800    text-gray-400    border-gray-600',
-  'Sell':        'bg-red-950     text-red-400     border-red-700',
-  'Strong Sell': 'bg-red-900     text-red-300     border-red-600',
+  'Strong Buy':  'bg-emerald-500/15 text-emerald-300 ring-emerald-500/40',
+  'Buy':         'bg-emerald-500/10 text-emerald-400 ring-emerald-500/25',
+  'Hold':        'bg-white/[0.06]   text-zinc-400   ring-white/[0.08]',
+  'Sell':        'bg-red-500/10     text-red-400    ring-red-500/25',
+  'Strong Sell': 'bg-red-500/15     text-red-300    ring-red-500/40',
 }
 
 function SignalBadge({ ticker }: { ticker: string }) {
@@ -45,7 +45,7 @@ function SignalBadge({ ticker }: { ticker: string }) {
   if (!data) return null
   const style = SIGNAL_STYLE[data.recommendation] ?? SIGNAL_STYLE['Hold']
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${style}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset ${style}`}>
       {data.recommendation === 'Strong Buy' || data.recommendation === 'Buy' ? '▲' :
        data.recommendation === 'Strong Sell' || data.recommendation === 'Sell' ? '▼' : '—'}
       {data.recommendation}
@@ -56,11 +56,11 @@ function SignalBadge({ ticker }: { ticker: string }) {
 
 // ── Swing badge shown inline on the Swing Trade section header ────────────
 const SWING_STYLE: Record<string, string> = {
-  'Strong Swing Buy':  'bg-emerald-900 text-emerald-300 border-emerald-600',
-  'Swing Buy':         'bg-emerald-950 text-emerald-400 border-emerald-700',
-  'Neutral':           'bg-gray-800    text-gray-400    border-gray-600',
-  'Swing Sell':        'bg-red-950     text-red-400     border-red-700',
-  'Strong Swing Sell': 'bg-red-900     text-red-300     border-red-600',
+  'Strong Swing Buy':  'bg-emerald-500/15 text-emerald-300 ring-emerald-500/40',
+  'Swing Buy':         'bg-emerald-500/10 text-emerald-400 ring-emerald-500/25',
+  'Neutral':           'bg-white/[0.06]   text-zinc-400   ring-white/[0.08]',
+  'Swing Sell':        'bg-red-500/10     text-red-400    ring-red-500/25',
+  'Strong Swing Sell': 'bg-red-500/15     text-red-300    ring-red-500/40',
 }
 
 function SwingBadge({ ticker }: { ticker: string }) {
@@ -74,7 +74,7 @@ function SwingBadge({ ticker }: { ticker: string }) {
   const style = SWING_STYLE[data.verdict] ?? SWING_STYLE['Neutral']
   const arrow = data.verdict.includes('Buy') ? '▲' : data.verdict.includes('Sell') ? '▼' : '—'
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${style}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset ${style}`}>
       {arrow} {data.verdict}
       <span className="text-[10px] opacity-70 font-normal">{data.probability_pct.toFixed(0)}% prob</span>
     </span>
@@ -102,18 +102,18 @@ const MAX_FAVS    = 12
 
 // ── Section definitions (order = display order) ───────────────────────────
 const SECTIONS = [
-  { key: 'chart',          label: '📈 Chart',          defaultOpen: true  },
-  { key: 'recommendation', label: '🎯 Signal',         defaultOpen: true  },
-  { key: 'swing',          label: '🔄 Swing Trade',    defaultOpen: true  },
-  { key: 'fundamentals',   label: '🏦 Fundamentals',   defaultOpen: true  },
-  { key: 'valuation',      label: '⚖️ Valuation',      defaultOpen: false },
-  { key: 'cashflow',       label: '💸 Cash Flow',      defaultOpen: false },
-  { key: 'holdings',       label: '🏛️ Holdings',       defaultOpen: false },
-  { key: 'btst',           label: '⚡ BTST',            defaultOpen: false },
-  { key: 'technical',      label: '🔬 Technical',      defaultOpen: false },
-  { key: 'insights',       label: '🤖 AI Insights',    defaultOpen: false },
-  { key: 'screener',       label: '🔍 Screener',       defaultOpen: false },
-  { key: 'strategies',     label: '📜 Strategies',     defaultOpen: false },
+  { key: 'chart',          label: 'Chart',          defaultOpen: true  },
+  { key: 'recommendation', label: 'Signal',         defaultOpen: true  },
+  { key: 'swing',          label: 'Swing Trade',    defaultOpen: true  },
+  { key: 'fundamentals',   label: 'Fundamentals',   defaultOpen: true  },
+  { key: 'valuation',      label: 'Valuation',      defaultOpen: false },
+  { key: 'cashflow',       label: 'Cash Flow',      defaultOpen: false },
+  { key: 'holdings',       label: 'Holdings',       defaultOpen: false },
+  { key: 'btst',           label: 'BTST',           defaultOpen: false },
+  { key: 'technical',      label: 'Technical',      defaultOpen: false },
+  { key: 'insights',       label: 'AI Insights',    defaultOpen: false },
+  { key: 'screener',       label: 'Screener',       defaultOpen: false },
+  { key: 'strategies',     label: 'Strategies',     defaultOpen: false },
 ] as const
 
 type SectionKey = typeof SECTIONS[number]['key']
@@ -132,23 +132,46 @@ function saveSections(s: Record<SectionKey, boolean>) {
 }
 
 // ── Collapsible section wrapper ───────────────────────────────────────────
+// Content stays mounted after first open (data is cached by react-query),
+// so the height animates smoothly in BOTH directions via grid-template-rows.
 function Section({ label, open, onToggle, badge, children }: {
   label: string; open: boolean; onToggle: () => void
   badge?: ReactNode; children: ReactNode
 }) {
+  const [mounted, setMounted] = useState(open)
+  useEffect(() => {
+    if (open) { setMounted(true); return }
+    const t = setTimeout(() => setMounted(false), 320)   // keep mounted through the collapse
+    return () => clearTimeout(t)
+  }, [open])
+
   return (
-    <div className="rounded-xl border border-gray-800 overflow-hidden">
+    <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden transition-colors duration-200 hover:border-white/[0.09]">
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900 hover:bg-gray-800/80 transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-3 text-left group"
       >
         <div className="flex items-center gap-2.5">
-          <span className={`text-sm font-semibold transition-colors ${open ? 'text-white' : 'text-gray-200'}`}>{label}</span>
+          <span className={`text-[13px] font-medium transition-colors duration-200 ${
+            open ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-200'
+          }`}>
+            {label}
+          </span>
           {badge}
         </div>
-        <span className={`text-gray-500 text-xs transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-zinc-600 text-[10px] transition-transform duration-300 ease-out ${
+          open ? 'rotate-180 text-zinc-400' : ''
+        }`}>▼</span>
       </button>
-      {open && <div className="bg-gray-950 section-enter">{children}</div>}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="section-enter">{children}</div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -239,9 +262,9 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* Header bar */}
-      <header className="sticky top-0 z-40 bg-gray-950/90 backdrop-blur-sm border-b border-gray-800 px-4 py-3">
+      <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-white/[0.06] px-4 py-2.5">
         <div className="max-w-screen-2xl mx-auto flex items-center gap-3">
           {/* Logo — click to go home */}
           <div
@@ -260,7 +283,7 @@ export default function App() {
               onClick={toggleFav}
               title={isFav ? 'Remove from favourites' : 'Add to favourites'}
               className={`shrink-0 text-xl transition-transform hover:scale-110 ${
-                isFav ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'
+                isFav ? 'text-amber-400' : 'text-zinc-600 hover:text-amber-300'
               }`}
             >
               {isFav ? '★' : '☆'}
@@ -276,12 +299,12 @@ export default function App() {
                 >
                   {user.username[0]?.toUpperCase()}
                 </span>
-                <span className="text-sm font-semibold text-gray-300 hidden sm:block max-w-[120px] truncate">
+                <span className="text-sm font-medium text-zinc-300 hidden sm:block max-w-[120px] truncate">
                   {user.username}
                 </span>
                 <button
                   onClick={logout}
-                  className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="text-xs text-zinc-500 hover:text-zinc-200 px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
                 >
                   Logout
                 </button>
@@ -300,7 +323,7 @@ export default function App() {
         {/* Favourites bar */}
         {favs.length > 0 && (
           <div className="max-w-screen-2xl mx-auto mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-            <span className="text-xs text-gray-600 shrink-0">★</span>
+            <span className="text-xs text-zinc-700 shrink-0">★</span>
             {favs.map(f => (
               <div key={f} className="flex items-center gap-0.5 shrink-0">
                 <button
@@ -308,14 +331,14 @@ export default function App() {
                   className={`px-2.5 py-1 rounded-full text-xs font-mono font-semibold transition-colors ${
                     f === ticker
                       ? 'bg-brand-700 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      : 'bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200'
                   }`}
                 >
                   {f.replace('.NS', '').replace('.BO', '')}
                 </button>
                 <button
                   onClick={() => removeFav(f)}
-                  className="text-gray-700 hover:text-gray-400 text-xs px-0.5"
+                  className="text-zinc-700 hover:text-zinc-400 text-xs px-0.5"
                   title="Remove"
                 >×</button>
               </div>
@@ -330,12 +353,12 @@ export default function App() {
             <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center mb-6">
               <Logo size={64} />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Indian Stock Analysis Dashboard</h2>
-            <p className="text-gray-400 text-sm max-w-md">
+            <h2 className="text-2xl font-semibold tracking-tight text-white mb-2">Indian Stock Analysis Dashboard</h2>
+            <p className="text-zinc-500 text-sm leading-relaxed max-w-md">
               Search any NSE/BSE stock to get fundamentals, financials, AI-powered SWOT analysis,
               technical support/resistance, trend signals, and similar stocks screener.
             </p>
-            <p className="text-xs text-gray-600 mt-1">Use NSE format: <span className="text-brand-500 font-mono">RELIANCE.NS</span> · <span className="text-brand-500 font-mono">TCS.NS</span></p>
+            <p className="text-xs text-zinc-600 mt-1.5">Use NSE format: <span className="text-brand-500 font-mono">RELIANCE.NS</span> · <span className="text-brand-500 font-mono">TCS.NS</span></p>
 
             {/* ── Swing Trade Analyser ─────────────────────────────── */}
             <div className="mt-10 w-full max-w-2xl">
@@ -345,21 +368,21 @@ export default function App() {
             {/* Favourites section */}
             {favs.length > 0 && (
               <div className="mt-10 w-full max-w-lg">
-                <p className="text-xs text-amber-400 font-semibold uppercase tracking-widest mb-3">★ Your Favourites</p>
+                <p className="text-[11px] text-amber-400/80 font-semibold uppercase tracking-[0.14em] mb-3">★ Your Favourites</p>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {favs.map(f => (
                     <button
                       key={f}
                       onClick={() => handleSelect(f)}
-                      className="group relative bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-brand-600 rounded-xl px-3 py-3 text-center transition-all"
+                      className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-brand-500/40 rounded-xl px-3 py-3 text-center transition-all"
                     >
                       <p className="text-sm font-bold text-white font-mono">
                         {f.replace('.NS','').replace('.BO','')}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">NSE</p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">NSE</p>
                       <button
                         onClick={e => { e.stopPropagation(); removeFav(f) }}
-                        className="absolute top-1 right-1.5 text-gray-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1.5 text-zinc-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove"
                       >×</button>
                     </button>
@@ -391,13 +414,13 @@ export default function App() {
 
             {/* Quick picks */}
             <div className="mt-8 w-full max-w-lg">
-              <p className="text-xs text-gray-600 font-semibold uppercase tracking-widest mb-3">Quick picks</p>
+              <p className="text-[11px] text-zinc-600 font-semibold uppercase tracking-[0.14em] mb-3">Quick picks</p>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {['RELIANCE.NS','TCS.NS','HDFCBANK.NS','INFY.NS','BAJFINANCE.NS','ETERNAL.NS'].map(t => (
                   <button
                     key={t}
                     onClick={() => handleSelect(t)}
-                    className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 font-mono transition text-xs"
+                    className="px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] hover:text-white rounded-lg text-zinc-400 font-mono transition-colors text-xs"
                   >
                     {t.replace('.NS', '')}
                   </button>
@@ -409,8 +432,8 @@ export default function App() {
           <>
             <PanelBoundary name="Quote"><QuoteHeader ticker={ticker} /></PanelBoundary>
             {renamedFrom && (
-              <div className="flex items-center justify-between gap-3 bg-amber-950 border border-amber-700 rounded-xl px-4 py-3 text-sm">
-                <p className="text-amber-300">
+              <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] border border-amber-500/25 rounded-xl px-4 py-3 text-sm">
+                <p className="text-amber-400/90">
                   <span className="font-bold">{renamedFrom.replace('.NS','').replace('.BO','')}</span> has been renamed to{' '}
                   <span className="font-bold">{ticker.replace('.NS','').replace('.BO','')}</span>. Showing data for the new ticker.
                 </p>
@@ -419,25 +442,25 @@ export default function App() {
             )}
 
             {/* ── Section toggle bar ───────────────────────────────────── */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5">
+            <div className="bg-zinc-900/40 border border-white/[0.06] rounded-2xl px-3 py-2.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-600 font-semibold uppercase tracking-wide shrink-0 mr-1">Sections</span>
+                <span className="text-[11px] text-zinc-600 font-semibold uppercase tracking-[0.14em] shrink-0 mr-1">Sections</span>
                 {SECTIONS.map(s => (
                   <button
                     key={s.key}
                     onClick={() => toggleSection(s.key)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
                       open[s.key]
-                        ? 'bg-brand-700/30 text-brand-300 border-brand-700'
-                        : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'
+                        ? 'bg-brand-500/10 text-brand-400 border-brand-500/30'
+                        : 'bg-white/[0.03] text-zinc-500 border-white/[0.06] hover:text-zinc-300 hover:border-white/[0.12]'
                     }`}
                   >
                     {s.label}
                   </button>
                 ))}
                 <div className="ml-auto flex gap-1.5 shrink-0">
-                  <button onClick={expandAll}    className="text-xs text-gray-600 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors">All ▼</button>
-                  <button onClick={collapseAll}  className="text-xs text-gray-600 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors">All ▲</button>
+                  <button onClick={expandAll}    className="text-xs text-zinc-600 hover:text-zinc-300 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors">All ▼</button>
+                  <button onClick={collapseAll}  className="text-xs text-zinc-600 hover:text-zinc-300 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors">All ▲</button>
                 </div>
               </div>
             </div>
@@ -445,61 +468,61 @@ export default function App() {
             {/* ── Collapsible sections ─────────────────────────────────── */}
             <div className="space-y-2">
 
-              <Section label="📈 Chart" open={open.chart} onToggle={() => toggleSection('chart')}>
+              <Section label="Chart" open={open.chart} onToggle={() => toggleSection('chart')}>
                 <PanelBoundary name="Chart"><ChartPanel ticker={ticker} /></PanelBoundary>
               </Section>
 
-              <Section label="🎯 Signal" open={open.recommendation} onToggle={() => toggleSection('recommendation')}
+              <Section label="Signal" open={open.recommendation} onToggle={() => toggleSection('recommendation')}
                 badge={<SignalBadge ticker={ticker} />}>
                 <PanelBoundary name="Recommendation"><RecommendationPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
               </Section>
 
-              <Section label="🔄 Swing Trade" open={open.swing} onToggle={() => toggleSection('swing')}
+              <Section label="Swing Trade" open={open.swing} onToggle={() => toggleSection('swing')}
                 badge={<SwingBadge ticker={ticker} />}>
                 <PanelBoundary name="Swing"><SwingPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
               </Section>
 
-              <Section label="🏦 Fundamentals" open={open.fundamentals} onToggle={() => toggleSection('fundamentals')}>
+              <Section label="Fundamentals" open={open.fundamentals} onToggle={() => toggleSection('fundamentals')}>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 p-3">
                   <div className="xl:col-span-2"><PanelBoundary name="Fundamentals"><FundamentalsPanel ticker={ticker} /></PanelBoundary></div>
                   <div className="xl:col-span-1"><PanelBoundary name="ProfitRevenue"><ProfitRevenuePanel ticker={ticker} /></PanelBoundary></div>
                 </div>
               </Section>
 
-              <Section label="⚖️ Valuation" open={open.valuation} onToggle={() => toggleSection('valuation')}>
+              <Section label="Valuation" open={open.valuation} onToggle={() => toggleSection('valuation')}>
                 <div className="p-3">
                   <PanelBoundary name="Valuation"><ValuationPanel ticker={ticker} /></PanelBoundary>
                 </div>
               </Section>
 
-              <Section label="💸 Cash Flow" open={open.cashflow} onToggle={() => toggleSection('cashflow')}>
+              <Section label="Cash Flow" open={open.cashflow} onToggle={() => toggleSection('cashflow')}>
                 <PanelBoundary name="CashFlow-s"><CashFlowPanel ticker={ticker} /></PanelBoundary>
               </Section>
 
-              <Section label="🏛️ Holdings" open={open.holdings} onToggle={() => toggleSection('holdings')}>
+              <Section label="Holdings" open={open.holdings} onToggle={() => toggleSection('holdings')}>
                 <PanelBoundary name="Holdings"><HoldingsPanel ticker={ticker} /></PanelBoundary>
               </Section>
 
-              <Section label="⚡ BTST" open={open.btst} onToggle={() => toggleSection('btst')}>
+              <Section label="BTST" open={open.btst} onToggle={() => toggleSection('btst')}>
                 <PanelBoundary name="BTST"><BTSTPanel ticker={ticker} companyName={companyName} /></PanelBoundary>
               </Section>
 
-              <Section label="🔬 Technical" open={open.technical} onToggle={() => toggleSection('technical')}>
+              <Section label="Technical" open={open.technical} onToggle={() => toggleSection('technical')}>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-3">
                   <PanelBoundary name="Technical"><TechnicalPanel ticker={ticker} /></PanelBoundary>
                   <PanelBoundary name="Trend"><TrendPanel ticker={ticker} /></PanelBoundary>
                 </div>
               </Section>
 
-              <Section label="🤖 AI Insights" open={open.insights} onToggle={() => toggleSection('insights')}>
+              <Section label="AI Insights" open={open.insights} onToggle={() => toggleSection('insights')}>
                 <PanelBoundary name="AI Insights"><AIInsightsPanel ticker={ticker} /></PanelBoundary>
               </Section>
 
-              <Section label="🔍 Screener" open={open.screener} onToggle={() => toggleSection('screener')}>
+              <Section label="Screener" open={open.screener} onToggle={() => toggleSection('screener')}>
                 <PanelBoundary name="Screener"><ScreenerPanel ticker={ticker} onSelect={handleSelect} /></PanelBoundary>
               </Section>
 
-              <Section label="📜 Pine Script Strategies" open={open.strategies} onToggle={() => toggleSection('strategies')}>
+              <Section label="Strategies" open={open.strategies} onToggle={() => toggleSection('strategies')}>
                 <PanelBoundary name="Strategies">
                   <PineScriptPanel ticker={ticker} onClose={() => toggleSection('strategies')} />
                 </PanelBoundary>
@@ -510,7 +533,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-gray-800 mt-8 px-4 py-4 text-center text-xs text-gray-600">
+      <footer className="border-t border-white/[0.06] mt-8 px-4 py-5 text-center text-xs text-zinc-600">
         TradeAssist · NSE/BSE Indian Stocks · Data from yfinance · For informational purposes only. Not financial advice.
       </footer>
 

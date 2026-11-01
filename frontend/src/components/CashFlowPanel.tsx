@@ -22,7 +22,7 @@ function formatY(val: number): string {
 const Tooltip_ = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs shadow-xl">
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl">
       <p className="font-semibold text-white mb-2">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-4">
@@ -39,12 +39,12 @@ function MetricRow({ label, value, isPercent = false, highlight = false }:
   const display = value == null ? 'N/A'
     : isPercent ? fmtPct(value)
     : fmt(value, 2)
-  const color = value == null ? 'text-gray-500'
+  const color = value == null ? 'text-zinc-500'
     : value >= 0 ? 'text-emerald-400' : 'text-red-400'
 
   return (
-    <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg ${highlight ? 'bg-gray-700' : 'bg-gray-800'}`}>
-      <span className="text-xs text-gray-400">{label}</span>
+    <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg ${highlight ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
+      <span className="text-xs text-zinc-400">{label}</span>
       <span className={`text-sm font-bold ${color}`}>{display}</span>
     </div>
   )
@@ -75,10 +75,10 @@ export function CashFlowPanel({ ticker }: Props) {
     <div className="panel space-y-4">
       <div className="flex items-center justify-between">
         <p className="panel-title">Cash Flow · Profitability</p>
-        <div className="flex rounded-lg overflow-hidden border border-gray-700">
+        <div className="flex rounded-lg overflow-hidden border border-zinc-700">
           {(['annual', 'quarterly'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
-              className={`px-3 py-1 text-xs font-medium transition ${view === v ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              className={`px-3 py-1 text-xs font-medium transition ${view === v ? 'bg-brand-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
               {v === 'annual' ? 'Annual' : 'Quarterly'}
             </button>
           ))}
@@ -100,12 +100,12 @@ export function CashFlowPanel({ ticker }: Props) {
           </ComposedChart>
         </ResponsiveContainer>
       ) : (
-        <p className="text-gray-500 text-sm text-center py-6">No cash flow data available</p>
+        <p className="text-zinc-500 text-sm text-center py-6">No cash flow data available</p>
       )}
 
       {/* Returns & margins grid */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Returns & Margins</p>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Returns & Margins</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           <MetricRow label="Return on Equity (ROE)"      value={m.roe}               isPercent highlight />
           <MetricRow label="Return on Assets (ROA/ROI)"  value={m.roi}               isPercent highlight />

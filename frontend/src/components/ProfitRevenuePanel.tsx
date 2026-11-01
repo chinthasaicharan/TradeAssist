@@ -21,7 +21,7 @@ function formatYAxis(val: number): string {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs shadow-xl">
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl">
       <p className="font-semibold text-white mb-2">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-4">
@@ -59,7 +59,7 @@ export function ProfitRevenuePanel({ ticker }: Props) {
     return (
       <div className="panel">
         <p className="panel-title">Revenue & Profit</p>
-        <p className="text-gray-500 text-sm">No financial data available for this ticker.</p>
+        <p className="text-zinc-500 text-sm">No financial data available for this ticker.</p>
       </div>
     )
   }
@@ -68,7 +68,7 @@ export function ProfitRevenuePanel({ ticker }: Props) {
     <div className="panel space-y-4">
       <div className="flex items-center justify-between">
         <p className="panel-title">Revenue & Profit</p>
-        <div className="flex rounded-lg overflow-hidden border border-gray-700">
+        <div className="flex rounded-lg overflow-hidden border border-zinc-700">
           {(['annual', 'quarterly'] as const).map(v => (
             <button
               key={v}
@@ -76,7 +76,7 @@ export function ProfitRevenuePanel({ ticker }: Props) {
               className={`px-3 py-1 text-xs font-medium transition ${
                 view === v
                   ? 'bg-brand-600 text-white'
-                  : 'bg-transparent text-gray-400 hover:text-white'
+                  : 'bg-transparent text-zinc-400 hover:text-white'
               }`}
             >
               {v === 'annual' ? 'Annual' : 'Quarterly'}

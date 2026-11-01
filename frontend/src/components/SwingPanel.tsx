@@ -16,7 +16,7 @@ const VCFG: Record<SwingResponse['verdict'], {
 }> = {
   'Strong Swing Buy':  { bg:'bg-emerald-950', border:'border-emerald-500', text:'text-emerald-300', meter:'#10b981', icon:'🚀' },
   'Swing Buy':         { bg:'bg-emerald-900', border:'border-emerald-600', text:'text-emerald-400', meter:'#34d399', icon:'📈' },
-  'Neutral':           { bg:'bg-gray-800',    border:'border-gray-600',    text:'text-gray-300',    meter:'#9ca3af', icon:'⚖️' },
+  'Neutral':           { bg:'bg-zinc-800',    border:'border-zinc-600',    text:'text-zinc-300',    meter:'#9ca3af', icon:'⚖️' },
   'Swing Sell':        { bg:'bg-red-900',     border:'border-red-600',     text:'text-red-400',     meter:'#f87171', icon:'📉' },
   'Strong Swing Sell': { bg:'bg-red-950',     border:'border-red-500',     text:'text-red-300',     meter:'#ef4444', icon:'🚫' },
 }
@@ -31,14 +31,14 @@ function FactorRow({ f }: { f: SwingFactor }) {
     : '#6b7280'
   const badge = f.signal === 'bullish' ? 'bg-emerald-900 text-emerald-400'
     : f.signal === 'bearish' ? 'bg-red-900 text-red-400'
-    : 'bg-gray-700 text-gray-400'
+    : 'bg-zinc-700 text-zinc-400'
 
   return (
-    <div className="bg-gray-800 rounded-xl px-3 py-2.5 space-y-1.5">
+    <div className="bg-zinc-800 rounded-xl px-3 py-2.5 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-white">{f.factor}</span>
-          <span className="text-xs text-gray-500 ml-1.5">{f.value}</span>
+          <span className="text-xs text-zinc-500 ml-1.5">{f.value}</span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${badge}`}>{f.signal}</span>
@@ -47,10 +47,10 @@ function FactorRow({ f }: { f: SwingFactor }) {
           </span>
         </div>
       </div>
-      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <p className="text-xs text-gray-500 leading-relaxed">{f.note}</p>
+      <p className="text-xs text-zinc-500 leading-relaxed">{f.note}</p>
     </div>
   )
 }
@@ -60,11 +60,11 @@ const ChartTip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs shadow-xl space-y-0.5">
-      <p className="text-gray-400 mb-1">{label}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-2.5 text-xs shadow-xl space-y-0.5">
+      <p className="text-zinc-400 mb-1">{label}</p>
       {[['O', d?.open], ['H', d?.high], ['L', d?.low], ['C', d?.close]].map(([k, v]) => (
         <p key={String(k)} className="flex justify-between gap-3">
-          <span className="text-gray-500">{k}</span>
+          <span className="text-zinc-500">{k}</span>
           <span className="font-bold text-white">{SYM}{fmt(Number(v), 0)}</span>
         </p>
       ))}
@@ -109,9 +109,9 @@ export function SwingPanel({ ticker }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <p className="panel-title mb-0">Swing Trade Analyser</p>
-          <p className="text-xs text-gray-500 mt-0.5">Multi-factor score · 5–20 day hold · ATR-based levels</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Multi-factor score · 5–20 day hold · ATR-based levels</p>
         </div>
-        <span className="text-xs text-gray-600">
+        <span className="text-xs text-zinc-600">
           Updated {new Date(data.generated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
@@ -124,21 +124,21 @@ export function SwingPanel({ ticker }: Props) {
               <span className="text-3xl">{cfg.icon}</span>
               <span className={`text-2xl font-black ${cfg.text}`}>{data.verdict}</span>
             </div>
-            <p className="text-xs text-gray-400 max-w-xl leading-relaxed">{data.summary}</p>
+            <p className="text-xs text-zinc-400 max-w-xl leading-relaxed">{data.summary}</p>
           </div>
           {/* Probability + confidence */}
           <div className="flex gap-5 shrink-0">
             <div className="text-right">
-              <p className="text-xs text-gray-500 mb-0.5">Win Probability</p>
+              <p className="text-xs text-zinc-500 mb-0.5">Win Probability</p>
               <p className={`text-3xl font-black ${cfg.text}`}>{data.probability_pct.toFixed(0)}%</p>
-              <div className="mt-1 h-1.5 w-20 bg-gray-700 rounded-full overflow-hidden ml-auto">
+              <div className="mt-1 h-1.5 w-20 bg-zinc-700 rounded-full overflow-hidden ml-auto">
                 <div className="h-full rounded-full" style={{ width: `${data.probability_pct}%`, backgroundColor: cfg.meter }} />
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500 mb-0.5">Confidence</p>
+              <p className="text-xs text-zinc-500 mb-0.5">Confidence</p>
               <p className={`text-3xl font-black ${cfg.text}`}>{data.confidence_pct.toFixed(0)}%</p>
-              <div className="mt-1 h-1.5 w-20 bg-gray-700 rounded-full overflow-hidden ml-auto">
+              <div className="mt-1 h-1.5 w-20 bg-zinc-700 rounded-full overflow-hidden ml-auto">
                 <div className="h-full rounded-full" style={{ width: `${data.confidence_pct}%`, backgroundColor: cfg.meter }} />
               </div>
             </div>
@@ -148,13 +148,13 @@ export function SwingPanel({ ticker }: Props) {
         {/* Composite score meter */}
         <div className="mt-4">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Composite Score</span>
+            <span className="text-zinc-400">Composite Score</span>
             <span className={`font-black ${cfg.text}`}>
               {data.composite_score > 0 ? '+' : ''}{data.composite_score} / 100
             </span>
           </div>
-          <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden">
-            <div className="absolute left-1/2 top-0 h-full w-px bg-gray-500" />
+          <div className="relative h-3 bg-zinc-700 rounded-full overflow-hidden">
+            <div className="absolute left-1/2 top-0 h-full w-px bg-zinc-500" />
             <div className="absolute top-0 h-full rounded-full transition-all"
               style={{
                 left:  data.composite_score >= 0 ? '50%' : `${50 + data.composite_score / 2}%`,
@@ -162,7 +162,7 @@ export function SwingPanel({ ticker }: Props) {
                 backgroundColor: cfg.meter,
               }} />
           </div>
-          <div className="flex justify-between text-[10px] text-gray-600 mt-0.5">
+          <div className="flex justify-between text-[10px] text-zinc-600 mt-0.5">
             <span>-100 Strong Sell</span><span>0 Neutral</span><span>+100 Strong Buy</span>
           </div>
         </div>
@@ -179,12 +179,12 @@ export function SwingPanel({ ticker }: Props) {
             sub: data.hold_days,
             color: data.risk_reward >= 2 ? 'text-emerald-400' : data.risk_reward >= 1.5 ? 'text-yellow-400' : 'text-red-400' },
         ].map(item => (
-          <div key={item.label} className="bg-gray-800 rounded-xl px-3 py-2.5">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{item.label}</p>
+          <div key={item.label} className="bg-zinc-800 rounded-xl px-3 py-2.5">
+            <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">{item.label}</p>
             <p className={`text-lg font-bold ${item.color}`}>
               {item.val != null ? `${SYM}${fmt(item.val, 0)}` : (item as any).display}
             </p>
-            <p className={`text-xs mt-0.5 ${item.val != null ? item.color + ' opacity-75' : 'text-gray-500'}`}>
+            <p className={`text-xs mt-0.5 ${item.val != null ? item.color + ' opacity-75' : 'text-zinc-500'}`}>
               {item.sub}
             </p>
           </div>
@@ -194,16 +194,16 @@ export function SwingPanel({ ticker }: Props) {
       {/* ── Fib levels ────────────────────────────────────────────────── */}
       {(data.fib_382 || data.fib_618) && (
         <div className="flex flex-wrap gap-3 text-xs">
-          {data.week52_low  && <span className="bg-gray-800 rounded-lg px-3 py-1.5">52W Low  <strong className="text-white ml-1">{SYM}{fmt(data.week52_low, 0)}</strong></span>}
+          {data.week52_low  && <span className="bg-zinc-800 rounded-lg px-3 py-1.5">52W Low  <strong className="text-white ml-1">{SYM}{fmt(data.week52_low, 0)}</strong></span>}
           {data.fib_382     && <span className="bg-yellow-950 border border-yellow-800 rounded-lg px-3 py-1.5 text-yellow-400">Fib 38.2% <strong className="ml-1">{SYM}{fmt(data.fib_382, 0)}</strong></span>}
           {data.fib_618     && <span className="bg-lime-950 border border-lime-800 rounded-lg px-3 py-1.5 text-lime-400">Fib 61.8% <strong className="ml-1">{SYM}{fmt(data.fib_618, 0)}</strong></span>}
-          {data.week52_high && <span className="bg-gray-800 rounded-lg px-3 py-1.5">52W High <strong className="text-white ml-1">{SYM}{fmt(data.week52_high, 0)}</strong></span>}
+          {data.week52_high && <span className="bg-zinc-800 rounded-lg px-3 py-1.5">52W High <strong className="text-white ml-1">{SYM}{fmt(data.week52_high, 0)}</strong></span>}
         </div>
       )}
 
       {/* ── Price chart ───────────────────────────────────────────────── */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Price Action (Last 40 Sessions)</p>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Price Action (Last 40 Sessions)</p>
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -276,8 +276,8 @@ export function SwingPanel({ ticker }: Props) {
 
       {/* ── Factor breakdown ──────────────────────────────────────────── */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">
-          Factor Breakdown <span className="text-gray-700 normal-case font-normal">— {bullFactors.length} bullish · {bearFactors.length} bearish</span>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">
+          Factor Breakdown <span className="text-zinc-700 normal-case font-normal">— {bullFactors.length} bullish · {bearFactors.length} bearish</span>
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {data.factors.map((f, i) => <FactorRow key={i} f={f} />)}

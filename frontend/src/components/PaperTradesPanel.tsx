@@ -15,8 +15,8 @@ interface Props {
 const OUTCOME_CFG: Record<TradeOutcome, { bg: string; border: string; text: string; badge: string; icon: string }> = {
   'Target Hit':    { bg: 'bg-emerald-950', border: 'border-emerald-700', text: 'text-emerald-300', badge: 'bg-emerald-900 text-emerald-300', icon: '🎯' },
   'Stop Loss Hit': { bg: 'bg-red-950',     border: 'border-red-800',     text: 'text-red-300',     badge: 'bg-red-900 text-red-300',         icon: '🛑' },
-  'Open':          { bg: 'bg-gray-900',    border: 'border-gray-700',    text: 'text-blue-300',    badge: 'bg-blue-900 text-blue-300',        icon: '📊' },
-  'Expired':       { bg: 'bg-gray-800',    border: 'border-gray-700',    text: 'text-gray-400',    badge: 'bg-gray-700 text-gray-400',        icon: '⌛' },
+  'Open':          { bg: 'bg-zinc-900',    border: 'border-zinc-700',    text: 'text-blue-300',    badge: 'bg-blue-900 text-blue-300',        icon: '📊' },
+  'Expired':       { bg: 'bg-zinc-800',    border: 'border-zinc-700',    text: 'text-zinc-400',    badge: 'bg-zinc-700 text-zinc-400',        icon: '⌛' },
 }
 
 // ── Row used in compact homepage view ────────────────────────────────────────
@@ -46,7 +46,7 @@ function CompactRow({
   const outcome  = evaluated.outcome ?? 'Open'
   const cfg      = OUTCOME_CFG[outcome]
   const pnl      = evaluated.currentPnlPct ?? 0
-  const pnlColor = pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-gray-400'
+  const pnlColor = pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-zinc-400'
   const sym      = trade.ticker.replace('.NS', '').replace('.BO', '')
 
   return (
@@ -71,7 +71,7 @@ function CompactRow({
           }`}>{trade.type}</span>
         </div>
         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-zinc-500">
             Entry {SYM}{fmt(trade.entryPrice, 0)}
           </span>
           <span className="text-xs text-emerald-600">
@@ -81,20 +81,20 @@ function CompactRow({
             SL {SYM}{fmt(trade.stopLoss, 0)}
           </span>
           {evaluated.currentPrice != null && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-zinc-400">
               Now {SYM}{fmt(evaluated.currentPrice, 0)}
             </span>
           )}
         </div>
         {/* Outcome detail */}
         {outcome !== 'Open' && evaluated.outcomeDate && (
-          <p className="text-xs text-gray-600 mt-0.5">
+          <p className="text-xs text-zinc-600 mt-0.5">
             {outcome} on {new Date(evaluated.outcomeDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
             {evaluated.daysToOutcome != null && ` · took ${evaluated.daysToOutcome} day${evaluated.daysToOutcome !== 1 ? 's' : ''}`}
           </p>
         )}
         {outcome === 'Open' && evaluated.daysToOutcome != null && (
-          <p className="text-xs text-gray-600 mt-0.5">Active {evaluated.daysToOutcome}d · {trade.verdict}</p>
+          <p className="text-xs text-zinc-600 mt-0.5">Active {evaluated.daysToOutcome}d · {trade.verdict}</p>
         )}
       </div>
 
@@ -104,14 +104,14 @@ function CompactRow({
           {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%
         </p>
         {outcome !== 'Open' && evaluated.daysToOutcome != null && (
-          <p className="text-xs text-gray-600">{evaluated.daysToOutcome}d to {outcome === 'Target Hit' ? 'target' : outcome === 'Stop Loss Hit' ? 'SL' : 'close'}</p>
+          <p className="text-xs text-zinc-600">{evaluated.daysToOutcome}d to {outcome === 'Target Hit' ? 'target' : outcome === 'Stop Loss Hit' ? 'SL' : 'close'}</p>
         )}
         {outcome === 'Open' && evaluated.daysToOutcome != null && (
-          <p className="text-xs text-gray-600">{evaluated.daysToOutcome}d open</p>
+          <p className="text-xs text-zinc-600">{evaluated.daysToOutcome}d open</p>
         )}
         <button
           onClick={() => onUnpin(trade.id)}
-          className="text-xs text-gray-700 hover:text-red-400 transition-colors mt-1 block"
+          className="text-xs text-zinc-700 hover:text-red-400 transition-colors mt-1 block"
           title="Remove"
         >Remove</button>
       </div>
@@ -152,7 +152,7 @@ function FullCard({
   const outcome  = evaluated.outcome ?? 'Open'
   const cfg      = OUTCOME_CFG[outcome]
   const pnl      = evaluated.currentPnlPct ?? 0
-  const pnlColor = pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-gray-400'
+  const pnlColor = pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-zinc-400'
   const riskPct   = ((trade.entryPrice - trade.stopLoss)   / trade.entryPrice * 100).toFixed(2)
   const rewardPct = ((trade.targetPrice - trade.entryPrice) / trade.entryPrice * 100).toFixed(2)
 
@@ -172,13 +172,13 @@ function FullCard({
               >
                 {trade.ticker.replace('.NS','').replace('.BO','')}
               </button>
-              <span className="text-xs text-gray-400 truncate hidden sm:block">{trade.companyName}</span>
+              <span className="text-xs text-zinc-400 truncate hidden sm:block">{trade.companyName}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
                 trade.type === 'BTST' ? 'bg-purple-900 text-purple-300' : 'bg-indigo-900 text-indigo-300'
               }`}>{trade.type}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${cfg.badge}`}>{outcome}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               {new Date(trade.pinnedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
               {' · '}Entry {SYM}{fmt(trade.entryPrice, 0)}
               {' · '}T {SYM}{fmt(trade.targetPrice, 0)}
@@ -190,15 +190,15 @@ function FullCard({
           <div className="text-right">
             <p className={`text-sm font-black ${pnlColor}`}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%</p>
             {evaluated.currentPrice && (
-              <p className="text-xs text-gray-500">{SYM}{fmt(evaluated.currentPrice, 0)}</p>
+              <p className="text-xs text-zinc-500">{SYM}{fmt(evaluated.currentPrice, 0)}</p>
             )}
           </div>
-          <span className="text-gray-600 text-xs">{expanded ? '▲' : '▼'}</span>
+          <span className="text-zinc-600 text-xs">{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-800 px-4 py-4 space-y-4">
+        <div className="border-t border-zinc-800 px-4 py-4 space-y-4">
           {/* Price grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
@@ -208,8 +208,8 @@ function FullCard({
               { label: 'R:R',         val: null,              color: trade.riskReward >= 2 ? 'text-emerald-400' : 'text-yellow-400',
                 display: `1 : ${trade.riskReward.toFixed(2)}` },
             ].map(item => (
-              <div key={item.label} className="bg-gray-900 rounded-lg px-3 py-2">
-                <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+              <div key={item.label} className="bg-zinc-900 rounded-lg px-3 py-2">
+                <p className="text-xs text-zinc-500 mb-0.5">{item.label}</p>
                 <p className={`text-sm font-bold ${item.color}`}>
                   {item.val != null ? `${SYM}${fmt(item.val, 0)}` : (item as any).display}
                 </p>
@@ -224,7 +224,7 @@ function FullCard({
               <span className="text-2xl">{cfg.icon}</span>
               <div>
                 <p className={`font-bold ${cfg.text}`}>{outcome}</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-zinc-400">
                   {evaluated.outcomeDate && `on ${new Date(evaluated.outcomeDate).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}`}
                   {evaluated.daysToOutcome != null && ` · took ${evaluated.daysToOutcome} day${evaluated.daysToOutcome !== 1 ? 's' : ''} from entry`}
                   {evaluated.outcomePrice != null && ` · at ${SYM}${fmt(evaluated.outcomePrice, 0)}`}
@@ -236,7 +236,7 @@ function FullCard({
 
           {/* Live status */}
           {outcome === 'Open' && evaluated.currentPrice != null && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-900 rounded-lg px-4 py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-zinc-900 rounded-lg px-4 py-3">
               {[
                 { label: 'Current Price', val: `${SYM}${fmt(evaluated.currentPrice, 0)}`, color: 'text-white' },
                 { label: 'P&L',           val: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`, color: pnlColor },
@@ -244,7 +244,7 @@ function FullCard({
                 { label: 'Confidence',    val: `${trade.confidence.toFixed(0)}%`, color: 'text-white' },
               ].map(item => (
                 <div key={item.label}>
-                  <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+                  <p className="text-xs text-zinc-500 mb-0.5">{item.label}</p>
                   <p className={`text-sm font-bold ${item.color}`}>{item.val}</p>
                 </div>
               ))}
@@ -254,7 +254,7 @@ function FullCard({
           {/* Note */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">📝 Note</p>
+              <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide">📝 Note</p>
               {!editingNote && (
                 <button onClick={() => setEditingNote(true)} className="text-xs text-brand-400 hover:text-brand-300">
                   {noteVal ? 'Edit' : '+ Add note'}
@@ -264,7 +264,7 @@ function FullCard({
             {editingNote ? (
               <div className="space-y-2">
                 <textarea
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white resize-none focus:outline-none focus:border-brand-500"
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white resize-none focus:outline-none focus:border-brand-500"
                   rows={2} value={noteVal} autoFocus
                   onChange={e => setNoteVal(e.target.value)}
                   placeholder="Your thesis, reason for this trade..."
@@ -273,19 +273,19 @@ function FullCard({
                   <button onClick={() => { onNoteChange(trade.id, noteVal); setEditingNote(false) }}
                     className="text-xs bg-brand-700 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg">Save</button>
                   <button onClick={() => { setNoteVal(trade.note); setEditingNote(false) }}
-                    className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-lg">Cancel</button>
+                    className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">Cancel</button>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-500 italic">
-                {noteVal || <span className="text-gray-700">No note. Click "+ Add note".</span>}
+              <p className="text-xs text-zinc-500 italic">
+                {noteVal || <span className="text-zinc-700">No note. Click "+ Add note".</span>}
               </p>
             )}
           </div>
 
           <div className="flex justify-between pt-1">
             <button onClick={() => onSelect(trade.ticker)}
-              className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg">
+              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg">
               📊 Open Stock
             </button>
             <button onClick={() => onUnpin(trade.id)}
@@ -349,7 +349,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-white">📊 Paper Trades / Monitoring</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               {trades.length === 0
                 ? 'No trades monitored yet — click "Monitor Trade" on any BTST or Recommendation signal'
                 : `${trades.length} trade${trades.length !== 1 ? 's' : ''} · ${openCount} open · ${closedCount} closed`}
@@ -360,7 +360,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
               {(['All', 'Open', 'Closed'] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-                    filter === f ? 'bg-brand-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    filter === f ? 'bg-brand-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                   }`}>
                   {f}
                 </button>
@@ -370,9 +370,9 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
         </div>
 
         {trades.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 border-dashed rounded-xl px-4 py-6 text-center">
+          <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-xl px-4 py-6 text-center">
             <p className="text-2xl mb-2">📈</p>
-            <p className="text-xs text-gray-500">Load any stock → scroll to BTST or Recommendation → click <span className="text-brand-400 font-semibold">Monitor Trade</span></p>
+            <p className="text-xs text-zinc-500">Load any stock → scroll to BTST or Recommendation → click <span className="text-brand-400 font-semibold">Monitor Trade</span></p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -385,7 +385,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
               />
             ))}
             {filtered.length === 0 && (
-              <p className="text-xs text-gray-600 text-center py-3">No {filter.toLowerCase()} trades.</p>
+              <p className="text-xs text-zinc-600 text-center py-3">No {filter.toLowerCase()} trades.</p>
             )}
           </div>
         )}
@@ -400,7 +400,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <p className="panel-title">📊 Paper Trades / Monitoring</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-0.5">
             {trades.length} trade{trades.length !== 1 ? 's' : ''} · {openCount} open · {closedCount} closed
           </p>
         </div>
@@ -408,7 +408,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
           {(['All', 'Open', 'Closed'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                filter === f ? 'bg-brand-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                filter === f ? 'bg-brand-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
               }`}>
               {f}
             </button>
@@ -417,7 +417,7 @@ export function PaperTradesPanel({ onSelectTicker, compact = false }: Props) {
       </div>
       <div className="space-y-2">
         {filtered.length === 0
-          ? <p className="text-xs text-gray-500 text-center py-4">No {filter.toLowerCase()} trades.</p>
+          ? <p className="text-xs text-zinc-500 text-center py-4">No {filter.toLowerCase()} trades.</p>
           : filtered.map(trade => (
             <FullCard
               key={trade.id}

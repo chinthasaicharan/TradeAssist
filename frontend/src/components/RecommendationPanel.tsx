@@ -15,7 +15,7 @@ interface Props { ticker: string; companyName?: string }
 const REC_CFG = {
   'Strong Buy':  { bg: 'bg-emerald-950', border: 'border-emerald-500', text: 'text-emerald-300', bar: '#10b981', meter: '#10b981' },
   'Buy':         { bg: 'bg-emerald-900', border: 'border-emerald-600', text: 'text-emerald-400', bar: '#34d399', meter: '#34d399' },
-  'Hold':        { bg: 'bg-gray-800',    border: 'border-gray-600',    text: 'text-gray-300',    bar: '#9ca3af', meter: '#9ca3af' },
+  'Hold':        { bg: 'bg-zinc-800',    border: 'border-zinc-600',    text: 'text-zinc-300',    bar: '#9ca3af', meter: '#9ca3af' },
   'Sell':        { bg: 'bg-red-900',     border: 'border-red-600',     text: 'text-red-400',     bar: '#f87171', meter: '#f87171' },
   'Strong Sell': { bg: 'bg-red-950',     border: 'border-red-500',     text: 'text-red-300',     bar: '#ef4444', meter: '#ef4444' },
 }
@@ -26,10 +26,10 @@ function ScoreBar({ label, score, color }: { label: string; score: number; color
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-zinc-400">{label}</span>
         <span className="font-semibold" style={{ color }}>{score > 0 ? '+' : ''}{score.toFixed(0)}</span>
       </div>
-      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color, opacity: positive ? 1 : 0.7 }} />
       </div>
     </div>
@@ -39,10 +39,10 @@ function ScoreBar({ label, score, color }: { label: string; score: number; color
 function MARow({ sig }: { sig: MASignal }) {
   const cls = sig.signal === 'bullish' ? 'badge-bullish' : sig.signal === 'bearish' ? 'badge-bearish' : 'badge-neutral'
   return (
-    <div className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-xs">
-      <span className="text-gray-300 font-medium">{sig.label}</span>
+    <div className="flex items-center justify-between bg-zinc-800 rounded-lg px-3 py-2 text-xs">
+      <span className="text-zinc-300 font-medium">{sig.label}</span>
       <div className="flex items-center gap-2">
-        <span className="text-gray-500 text-xs truncate max-w-[140px]">{sig.value}</span>
+        <span className="text-zinc-500 text-xs truncate max-w-[140px]">{sig.value}</span>
         <span className={cls}>{sig.signal}</span>
       </div>
     </div>
@@ -53,14 +53,14 @@ function PatternRow({ p }: { p: ChartPattern }) {
   if (!p.detected) return null
   const color = p.implication === 'bullish' ? 'text-emerald-400 bg-emerald-900'
     : p.implication === 'bearish' ? 'text-red-400 bg-red-900'
-    : 'text-gray-300 bg-gray-700'
+    : 'text-zinc-300 bg-zinc-700'
   return (
-    <div className="bg-gray-800 rounded-lg px-3 py-2">
+    <div className="bg-zinc-800 rounded-lg px-3 py-2">
       <div className="flex items-center gap-2 mb-0.5">
         <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${color}`}>{p.implication}</span>
         <span className="text-xs font-bold text-white">{p.name}</span>
       </div>
-      <p className="text-xs text-gray-500">{p.description}</p>
+      <p className="text-xs text-zinc-500">{p.description}</p>
     </div>
   )
 }
@@ -72,10 +72,10 @@ function RSIGauge({ rsi }: { rsi: number }) {
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-400">RSI (14)</span>
+        <span className="text-zinc-400">RSI (14)</span>
         <span className="font-bold" style={{ color }}>{rsi.toFixed(1)} — {label}</span>
       </div>
-      <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden">
+      <div className="relative h-3 bg-zinc-700 rounded-full overflow-hidden">
         {/* zone backgrounds */}
         <div className="absolute left-0 top-0 h-full w-[30%] bg-emerald-900 opacity-40 rounded-l-full" />
         <div className="absolute right-0 top-0 h-full w-[30%] bg-red-900 opacity-40 rounded-r-full" />
@@ -83,7 +83,7 @@ function RSIGauge({ rsi }: { rsi: number }) {
         <div className="absolute top-0 h-full w-1 rounded-full -translate-x-1/2 transition-all"
           style={{ left: `${pct}%`, backgroundColor: color }} />
       </div>
-      <div className="flex justify-between text-xs text-gray-600 mt-0.5">
+      <div className="flex justify-between text-xs text-zinc-600 mt-0.5">
         <span>0</span><span>30</span><span>50</span><span>70</span><span>100</span>
       </div>
     </div>
@@ -93,8 +93,8 @@ function RSIGauge({ rsi }: { rsi: number }) {
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs shadow-xl">
-      <p className="text-gray-400 mb-2">{label}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl">
+      <p className="text-zinc-400 mb-2">{label}</p>
       {payload.filter((p: any) => p.value != null).map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-3">
           <span>{p.name}:</span>
@@ -189,7 +189,7 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold transition-all border ${
             pinned
               ? 'bg-amber-900 border-amber-600 text-amber-300 hover:bg-amber-800'
-              : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-amber-300'
+              : 'bg-zinc-800 border-zinc-600 text-zinc-400 hover:bg-zinc-700 hover:text-amber-300'
           } ${pinMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
         >
           <span>{pinned ? '📌' : '📊'}</span>
@@ -201,15 +201,15 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
       <div className={`${cfg.bg} border-2 ${cfg.border} rounded-2xl p-5`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs text-gray-400 mb-1 uppercase tracking-wider">Signal</p>
+            <p className="text-xs text-zinc-400 mb-1 uppercase tracking-wider">Signal</p>
             <p className={`text-3xl font-black ${cfg.text}`}>{data.recommendation}</p>
-            <p className="text-xs text-gray-400 mt-1">{data.summary}</p>
+            <p className="text-xs text-zinc-400 mt-1">{data.summary}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-400 mb-1">Confidence</p>
+            <p className="text-xs text-zinc-400 mb-1">Confidence</p>
             <p className={`text-4xl font-black ${cfg.text}`}>{data.confidence_pct.toFixed(0)}%</p>
             {/* confidence arc */}
-            <div className="mt-2 h-2 w-28 bg-gray-700 rounded-full overflow-hidden ml-auto">
+            <div className="mt-2 h-2 w-28 bg-zinc-700 rounded-full overflow-hidden ml-auto">
               <div className="h-full rounded-full transition-all" style={{ width: `${data.confidence_pct}%`, backgroundColor: cfg.meter }} />
             </div>
           </div>
@@ -226,11 +226,11 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
         {/* Composite meter */}
         <div className="mt-3">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Composite Score</span>
+            <span className="text-zinc-400">Composite Score</span>
             <span className={`font-black text-sm ${cfg.text}`}>{data.composite_score > 0 ? '+' : ''}{data.composite_score}</span>
           </div>
-          <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden">
-            <div className="absolute left-1/2 top-0 h-full w-0.5 bg-gray-500" />
+          <div className="relative h-3 bg-zinc-700 rounded-full overflow-hidden">
+            <div className="absolute left-1/2 top-0 h-full w-0.5 bg-zinc-500" />
             <div className="absolute top-0 h-full rounded-full transition-all"
               style={{
                 left:  data.composite_score >= 0 ? '50%' : `${50 + data.composite_score / 2}%`,
@@ -239,7 +239,7 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
               }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-600 mt-0.5">
+          <div className="flex justify-between text-xs text-zinc-600 mt-0.5">
             <span>-100 Sell</span><span>0 Neutral</span><span>+100 Buy</span>
           </div>
         </div>
@@ -247,7 +247,7 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
 
       {/* Price + MA chart */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Price with MA20 / MA50 / MA200</p>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Price with MA20 / MA50 / MA200</p>
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -274,22 +274,22 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
       {/* Two column: MA signals + MACD/Volume */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">MA Signals</p>
+          <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">MA Signals</p>
           <div className="space-y-1.5">
             {data.ma_signals.map((s, i) => <MARow key={i} sig={s} />)}
           </div>
         </div>
         <div className="space-y-3">
           <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Indicators</p>
+            <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Indicators</p>
             <div className="space-y-1.5">
               {[
                 { label: 'MACD',          value: data.macd_signal,        positive: data.macd_signal.includes('Bull') },
                 { label: 'RSI Signal',    value: data.rsi_signal,          positive: data.rsi.valueOf() < 50 },
                 { label: 'Volume vs Avg', value: `${data.volume_vs_avg.toFixed(2)}x avg vol`, positive: data.volume_vs_avg > 1 },
               ].map(item => (
-                <div key={item.label} className="flex justify-between items-center bg-gray-800 rounded-lg px-3 py-2 text-xs">
-                  <span className="text-gray-400">{item.label}</span>
+                <div key={item.label} className="flex justify-between items-center bg-zinc-800 rounded-lg px-3 py-2 text-xs">
+                  <span className="text-zinc-400">{item.label}</span>
                   <span className={`font-semibold ${item.positive ? 'text-emerald-400' : 'text-red-400'}`}>{item.value}</span>
                 </div>
               ))}
@@ -299,7 +299,7 @@ export function RecommendationPanel({ ticker, companyName }: Props) {
           {/* Detected patterns */}
           {detectedPatterns.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Active Patterns</p>
+              <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Active Patterns</p>
               <div className="space-y-1.5">
                 {detectedPatterns.map((p, i) => <PatternRow key={i} p={p} />)}
               </div>

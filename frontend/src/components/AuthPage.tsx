@@ -16,8 +16,8 @@ function extractError(err: unknown): string {
 }
 
 const inputCls =
-  'w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white ' +
-  'placeholder-gray-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors'
+  'w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white ' +
+  'placeholder-zinc-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors'
 
 export function AuthPage({ onClose }: Props) {
   const { login, register } = useAuth()
@@ -64,19 +64,19 @@ export function AuthPage({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden"
+        className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Tabs */}
-        <div className="flex border-b border-gray-800">
+        <div className="flex border-b border-zinc-800">
           {(['login', 'register'] as const).map(m => (
             <button
               key={m}
               onClick={() => switchMode(m)}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                 mode === m
-                  ? 'text-white border-b-2 border-brand-500 bg-gray-900'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-white border-b-2 border-brand-500 bg-zinc-900'
+                  : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
               {m === 'login' ? 'Log in' : 'Create account'}
@@ -88,12 +88,12 @@ export function AuthPage({ onClose }: Props) {
           {mode === 'login' ? (
             <>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">Email or username</label>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Email or username</label>
                 <input className={inputCls} value={form.login} onChange={set('login')}
                        placeholder="you@example.com" autoFocus autoComplete="username" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">Password</label>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Password</label>
                 <input className={inputCls} type="password" value={form.password} onChange={set('password')}
                        placeholder="••••••••" autoComplete="current-password" />
               </div>
@@ -101,17 +101,17 @@ export function AuthPage({ onClose }: Props) {
           ) : (
             <>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">Email</label>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Email</label>
                 <input className={inputCls} type="email" value={form.email} onChange={set('email')}
                        placeholder="you@example.com" autoFocus autoComplete="email" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">Username</label>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Username</label>
                 <input className={inputCls} value={form.username} onChange={set('username')}
                        placeholder="trader_sai" autoComplete="username" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">Password</label>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Password</label>
                 <input className={inputCls} type="password" value={form.password} onChange={set('password')}
                        placeholder="8+ chars, 1 uppercase, 1 digit" autoComplete="new-password" />
               </div>
@@ -133,7 +133,7 @@ export function AuthPage({ onClose }: Props) {
             {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
 
-          <p className="text-center text-[11px] text-gray-600">
+          <p className="text-center text-[11px] text-zinc-600">
             {mode === 'login' ? (
               <>New here?{' '}
                 <button type="button" onClick={() => switchMode('register')} className="text-brand-400 hover:text-brand-300">

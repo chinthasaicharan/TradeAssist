@@ -77,7 +77,7 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
   return (
     <div ref={containerRef} className="relative w-full max-w-xl">
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
           {isFetching
             ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -97,8 +97,8 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search Nifty 500 — Reliance, TCS, HDFC, Zomato…"
-          className="w-full pl-9 pr-28 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white
-                     placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-1
+          className="w-full pl-9 pr-28 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white
+                     placeholder-zinc-600 focus:outline-none focus:border-brand-500 focus:ring-1
                      focus:ring-brand-500 transition text-sm"
           aria-label="Search for a stock"
           aria-autocomplete="list"
@@ -112,14 +112,14 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
               {currentTicker.replace('.NS','').replace('.BO','')}
             </span>
           )}
-          <span className="text-xs text-gray-600 hidden sm:block">N500</span>
+          <span className="text-[10px] text-zinc-600 hidden sm:block">N500</span>
         </div>
       </div>
 
       {open && suggestions.length > 0 && (
         <ul
           ref={listRef}
-          className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl
+          className="absolute z-50 mt-2 w-full bg-zinc-900/95 backdrop-blur-xl border border-white/[0.08] rounded-xl
                      shadow-2xl overflow-hidden max-h-80 overflow-y-auto"
           role="listbox"
           aria-label="Stock suggestions"
@@ -134,25 +134,25 @@ export function StockSearch({ onSelect, currentTicker }: Props) {
               onClick={() => handleSelect(s.ticker)}
               onMouseEnter={() => setActiveIdx(idx)}
               className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors
-                         ${idx === activeIdx ? 'bg-gray-700' : ''}`}
+                         ${idx === activeIdx ? 'bg-white/[0.06]' : ''}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="font-bold text-white text-sm font-mono w-24 shrink-0">
+                <span className="font-semibold text-white text-sm font-mono w-24 shrink-0">
                   {s.ticker.replace('.NS','').replace('.BO','')}
                 </span>
-                <span className="text-gray-300 text-sm truncate">{s.name}</span>
+                <span className="text-zinc-400 text-sm truncate">{s.name}</span>
               </div>
-              <span className="text-xs text-gray-600 shrink-0 ml-2">{s.exchange}</span>
+              <span className="text-[11px] text-zinc-600 shrink-0 ml-2">{s.exchange}</span>
             </li>
           ))}
-          <li className="px-4 py-2 text-center text-xs text-gray-600 border-t border-gray-700">
+          <li className="px-4 py-2 text-center text-[11px] text-zinc-600 border-t border-white/[0.06]">
             Nifty 500 · <span className="hidden sm:inline">↑↓ to navigate · </span>Enter to load
           </li>
         </ul>
       )}
 
       {open && debounced.length >= 1 && suggestions.length === 0 && !isFetching && (
-        <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl shadow-2xl px-4 py-3 text-sm text-gray-400">
+        <div className="absolute z-50 mt-2 w-full bg-zinc-900/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/50 px-4 py-3 text-sm text-zinc-500">
           No results for "<span className="text-white">{debounced}</span>" — try the full company name or NSE symbol
         </div>
       )}

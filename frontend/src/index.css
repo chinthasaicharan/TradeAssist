@@ -3,50 +3,69 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    @apply bg-zinc-950 text-zinc-200 antialiased;
+    font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';   /* Inter: single-story a, open digits */
+  }
+  ::selection {
+    @apply bg-brand-500/30 text-white;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/50 ring-offset-0;
   }
 }
 
 @layer components {
+  /* Elevated surface — translucent, hairline border, soft shadow */
   .panel {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-5;
+    @apply bg-zinc-900/40 border border-white/[0.06] rounded-2xl p-5;
   }
   .panel-title {
-    @apply text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 mb-4;
   }
   .metric-card {
-    @apply bg-gray-800 rounded-lg p-4 flex flex-col gap-1;
+    @apply bg-white/[0.03] border border-white/[0.04] rounded-xl p-3.5 flex flex-col gap-1;
   }
   .metric-label {
-    @apply text-xs text-gray-400 uppercase tracking-wide;
+    @apply text-[11px] text-zinc-500 uppercase tracking-wider;
   }
   .metric-value {
-    @apply text-lg font-bold text-white;
+    @apply text-lg font-semibold text-white tabular-nums;
   }
   .badge-bullish {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-900 text-emerald-300;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20;
   }
   .badge-bearish {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900 text-red-300;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20;
   }
   .badge-neutral {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-700 text-gray-300;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-white/[0.06] text-zinc-300 ring-1 ring-inset ring-white/[0.08];
   }
-  /* Entrance animation for collapsible sections (mount-gated, so open-only) */
+  /* Entrance animation for mount-gated content */
   .section-enter {
-    animation: section-in 220ms ease-out;
+    animation: section-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
 @keyframes section-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Custom scrollbar — nearly invisible until hover */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); border: 2px solid transparent; background-clip: padding-box; }

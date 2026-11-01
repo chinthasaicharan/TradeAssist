@@ -375,11 +375,11 @@ function ChartInner({ ticker }: Props) {
         </div>
         <div className="flex gap-1 flex-wrap items-center">
           {/* Intraday */}
-          <div className="flex gap-1 border-r border-gray-700 pr-2 mr-1">
+          <div className="flex gap-1 border-r border-zinc-700 pr-2 mr-1">
             {(['5m','15m','30m'] as Interval[]).map(i => (
               <button key={i} onClick={() => setIntervalVal(i)}
                 className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
-                  interval === i ? 'bg-purple-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                  interval === i ? 'bg-purple-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
                 }`}>{INTERVAL_LABELS[i]}</button>
             ))}
           </div>
@@ -387,7 +387,7 @@ function ChartInner({ ticker }: Props) {
           {(['1d','1wk','1mo'] as Interval[]).map(i => (
             <button key={i} onClick={() => setIntervalVal(i)}
               className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
-                interval === i ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                interval === i ? 'bg-brand-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
               }`}>{INTERVAL_LABELS[i]}</button>
           ))}
         </div>
@@ -414,7 +414,7 @@ function ChartInner({ ticker }: Props) {
         {(['rsi','macd','volume'] as const).map(sp => (
           <button key={sp} onClick={() => setSubPanel(subPanel === sp ? null : sp)}
             className={`px-3 py-1 rounded text-xs font-semibold uppercase transition-colors ${
-              subPanel === sp ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+              subPanel === sp ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
             }`}>{sp}</button>
         ))}
       </div>
@@ -436,10 +436,10 @@ function ChartInner({ ticker }: Props) {
           { label:'Period High',val: lastBar ? `${SYM}${fmt(lastBar.high)}` : 'N/A', color:'#10b981', sub:'' },
           { label:'Period Low', val: lastBar ? `${SYM}${fmt(lastBar.low)}`  : 'N/A', color:'#ef4444', sub:'' },
         ].map(({ label, val, color, sub }) => (
-          <div key={label} className="bg-gray-800 rounded-lg px-3 py-2">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+          <div key={label} className="bg-zinc-800 rounded-lg px-3 py-2">
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">{label}</p>
             <p className="text-sm font-bold" style={{ color }}>{val}</p>
-            {sub && <p className="text-xs text-gray-600">{sub}</p>}
+            {sub && <p className="text-xs text-zinc-600">{sub}</p>}
           </div>
         ))}
       </div>
@@ -455,18 +455,18 @@ function ChartInner({ ticker }: Props) {
           <div className={`rounded-xl border px-4 py-3 flex flex-wrap items-center gap-4 text-xs ${
             lastBull ? 'bg-emerald-950 border-emerald-700' :
             lastBear ? 'bg-red-950 border-red-700' :
-            'bg-gray-800 border-gray-700'
+            'bg-zinc-800 border-zinc-700'
           }`}>
             <div>
-              <span className="text-gray-400 uppercase tracking-wide font-semibold">Fib+ST Strategy</span>
-              <span className={`ml-2 font-bold text-sm ${lastBull ? 'text-emerald-400' : lastBear ? 'text-red-400' : 'text-gray-400'}`}>
+              <span className="text-zinc-400 uppercase tracking-wide font-semibold">Fib+ST Strategy</span>
+              <span className={`ml-2 font-bold text-sm ${lastBull ? 'text-emerald-400' : lastBear ? 'text-red-400' : 'text-zinc-400'}`}>
                 {lastBull ? '▲ BUY Signal' : lastBear ? '▼ SELL Signal' : 'No active signal'}
               </span>
             </div>
             <div className="flex gap-4 ml-auto">
               {lastF618 != null && <span className="text-lime-400">Fib 61.8% <strong>{SYM}{fmt(lastF618)}</strong></span>}
               {lastF382 != null && <span className="text-yellow-400">Fib 38.2% <strong>{SYM}{fmt(lastF382)}</strong></span>}
-              <span className="text-gray-500">Signal = price in golden zone + ST confirms</span>
+              <span className="text-zinc-500">Signal = price in golden zone + ST confirms</span>
             </div>
           </div>
         )
@@ -479,9 +479,9 @@ function ChartInner({ ticker }: Props) {
             <p className="text-xs text-emerald-500 font-semibold uppercase mb-1.5">Support</p>
             <div className="space-y-1">
               {(data.supports ?? []).map((l: any, i: number) => (
-                <div key={i} className="flex justify-between bg-gray-800 rounded px-2.5 py-1.5 text-xs">
+                <div key={i} className="flex justify-between bg-zinc-800 rounded px-2.5 py-1.5 text-xs">
                   <span className="text-emerald-400 font-bold">{SYM}{fmt(l.price)}</span>
-                  <span className="text-gray-500 capitalize">{l.strength}</span>
+                  <span className="text-zinc-500 capitalize">{l.strength}</span>
                 </div>
               ))}
             </div>
@@ -490,9 +490,9 @@ function ChartInner({ ticker }: Props) {
             <p className="text-xs text-red-400 font-semibold uppercase mb-1.5">Resistance</p>
             <div className="space-y-1">
               {(data.resistances ?? []).map((l: any, i: number) => (
-                <div key={i} className="flex justify-between bg-gray-800 rounded px-2.5 py-1.5 text-xs">
+                <div key={i} className="flex justify-between bg-zinc-800 rounded px-2.5 py-1.5 text-xs">
                   <span className="text-red-400 font-bold">{SYM}{fmt(l.price)}</span>
-                  <span className="text-gray-500 capitalize">{l.strength}</span>
+                  <span className="text-zinc-500 capitalize">{l.strength}</span>
                 </div>
               ))}
             </div>

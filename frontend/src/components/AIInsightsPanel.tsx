@@ -66,7 +66,7 @@ export function AIInsightsPanel({ ticker }: Props) {
       <div className="flex items-center justify-between">
         <p className="panel-title">AI Insights · SWOT Analysis</p>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600 hidden sm:block">Gemini 2.5 Flash</span>
+          <span className="text-xs text-zinc-600 hidden sm:block">Gemini 2.5 Flash</span>
           <button
           onClick={analyze}
           disabled={loading}
@@ -90,10 +90,10 @@ export function AIInsightsPanel({ ticker }: Props) {
       </div>
 
       {!data && !loading && !error && (
-        <div className="text-center py-10 text-gray-500 text-sm">
+        <div className="text-center py-10 text-zinc-500 text-sm">
           <p className="text-4xl mb-3">🤖</p>
-          <p>Click <strong className="text-gray-300">Generate SWOT</strong> to get AI-powered analysis</p>
-          <p className="text-xs mt-1 text-gray-600">Analyzes fundamentals, technicals & recent news</p>
+          <p>Click <strong className="text-zinc-300">Generate SWOT</strong> to get AI-powered analysis</p>
+          <p className="text-xs mt-1 text-zinc-600">Analyzes fundamentals, technicals & recent news</p>
         </div>
       )}
 
@@ -106,7 +106,7 @@ export function AIInsightsPanel({ ticker }: Props) {
       {loading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse h-24 bg-gray-800 rounded-xl" />
+            <div key={i} className="animate-pulse h-24 bg-zinc-800 rounded-xl" />
           ))}
         </div>
       )}
@@ -114,7 +114,7 @@ export function AIInsightsPanel({ ticker }: Props) {
       {data && !loading && (
         <>
           {/* Summary */}
-          <div className="bg-gray-800 rounded-xl p-4 text-sm text-gray-300 leading-relaxed border-l-4 border-brand-500">
+          <div className="bg-zinc-800 rounded-xl p-4 text-sm text-zinc-300 leading-relaxed border-l-4 border-brand-500">
             <p className="text-xs font-semibold text-brand-400 mb-1">EXECUTIVE SUMMARY</p>
             {data.insights.summary}
           </div>
@@ -131,7 +131,7 @@ export function AIInsightsPanel({ ticker }: Props) {
                 </p>
                 <ul className="space-y-1.5">
                   {data.insights[cfg.key].map((item, i) => (
-                    <li key={i} className="flex gap-2 text-xs text-gray-300">
+                    <li key={i} className="flex gap-2 text-xs text-zinc-300">
                       <span className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${cfg.badge}`} />
                       {item}
                     </li>
@@ -141,7 +141,7 @@ export function AIInsightsPanel({ ticker }: Props) {
             ))}
           </div>
 
-          <p className="text-right text-xs text-gray-600">
+          <p className="text-right text-xs text-zinc-600">
             Generated {new Date(data.insights.generated_at).toLocaleString()}
           </p>
         </>

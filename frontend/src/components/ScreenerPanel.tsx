@@ -61,12 +61,12 @@ export function ScreenerPanel({ ticker, onSelect }: Props) {
       <p className="panel-title">Similar Stocks Screener</p>
 
       {sorted.length === 0 ? (
-        <p className="text-gray-500 text-sm">No similar stocks found.</p>
+        <p className="text-zinc-500 text-sm">No similar stocks found.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs" role="grid">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-800">
+              <tr className="text-zinc-400 border-b border-zinc-800">
                 <th className="px-3 py-2 text-left">Ticker</th>
                 <th className="px-3 py-2 text-left">Company</th>
                 <th className="px-3 py-2 text-left">Sector</th>
@@ -81,30 +81,30 @@ export function ScreenerPanel({ ticker, onSelect }: Props) {
                 <tr
                   key={stock.ticker}
                   onClick={() => onSelect(stock.ticker)}
-                  className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition"
+                  className="border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer transition"
                   role="row"
                   aria-label={`Load ${stock.ticker}`}
                 >
                   <td className="px-3 py-3 font-bold text-brand-400">{stock.ticker}</td>
-                  <td className="px-3 py-3 text-gray-300 max-w-[160px] truncate">{stock.name}</td>
-                  <td className="px-3 py-3 text-gray-500">{stock.sector}</td>
+                  <td className="px-3 py-3 text-zinc-300 max-w-[160px] truncate">{stock.name}</td>
+                  <td className="px-3 py-3 text-zinc-500">{stock.sector}</td>
                   <td className="px-3 py-3 text-white">{fmtCurrency(stock.market_cap)}</td>
                   <td className="px-3 py-3 text-white">{fmt(stock.pe_ratio, 1)}</td>
                   <td className={`px-3 py-3 font-semibold ${
-                    stock.price_change_1y == null ? 'text-gray-500'
+                    stock.price_change_1y == null ? 'text-zinc-500'
                       : stock.price_change_1y >= 0 ? 'text-emerald-400' : 'text-red-400'
                   }`}>
                     {stock.price_change_1y != null ? `${stock.price_change_1y >= 0 ? '+' : ''}${fmt(stock.price_change_1y, 1)}%` : 'N/A'}
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-700 rounded-full h-1.5 w-16">
+                      <div className="flex-1 bg-zinc-700 rounded-full h-1.5 w-16">
                         <div
                           className="bg-brand-500 h-1.5 rounded-full"
                           style={{ width: `${(stock.similarity_score * 100).toFixed(0)}%` }}
                         />
                       </div>
-                      <span className="text-gray-300 w-8 text-right">
+                      <span className="text-zinc-300 w-8 text-right">
                         {(stock.similarity_score * 100).toFixed(0)}%
                       </span>
                     </div>

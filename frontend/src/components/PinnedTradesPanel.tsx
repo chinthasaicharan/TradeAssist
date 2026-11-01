@@ -16,7 +16,7 @@ const OUTCOME_CFG: Record<TradeOutcome, { bg: string; text: string; icon: string
   'Target Hit':    { bg: 'bg-emerald-900 border-emerald-600', text: 'text-emerald-300', icon: '🎯' },
   'Stop Loss Hit': { bg: 'bg-red-900 border-red-600',         text: 'text-red-300',     icon: '🛑' },
   'Open':          { bg: 'bg-blue-900 border-blue-600',       text: 'text-blue-300',    icon: '⏳' },
-  'Expired':       { bg: 'bg-gray-700 border-gray-600',       text: 'text-gray-300',    icon: '⌛' },
+  'Expired':       { bg: 'bg-zinc-700 border-zinc-600',       text: 'text-zinc-300',    icon: '⌛' },
 }
 
 // ── Single trade card ────────────────────────────────────────────────────────
@@ -89,15 +89,15 @@ function TradeCard({
               >
                 {trade.ticker.replace('.NS', '').replace('.BO', '')}
               </button>
-              <span className="text-xs text-gray-400 truncate hidden sm:block">{trade.companyName}</span>
+              <span className="text-xs text-zinc-400 truncate hidden sm:block">{trade.companyName}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
                 trade.type === 'BTST'
                   ? 'bg-purple-900 text-purple-300'
                   : 'bg-indigo-900 text-indigo-300'
               }`}>{trade.type}</span>
-              <span className="text-xs text-gray-500">{trade.verdict}</span>
+              <span className="text-xs text-zinc-500">{trade.verdict}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               Pinned {pinnedDateStr} · Entry {SYM}{fmt(trade.entryPrice, 0)}
             </p>
           </div>
@@ -109,19 +109,19 @@ function TradeCard({
               {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%
             </p>
             {evaluated.currentPrice && (
-              <p className="text-xs text-gray-500">{SYM}{fmt(evaluated.currentPrice, 0)}</p>
+              <p className="text-xs text-zinc-500">{SYM}{fmt(evaluated.currentPrice, 0)}</p>
             )}
           </div>
           <span className={`text-xs px-2 py-1 rounded-full font-semibold border ${cfg.text} ${cfg.bg}`}>
             {outcome}
           </span>
-          <span className="text-gray-500 text-xs">{expanded ? '▲' : '▼'}</span>
+          <span className="text-zinc-500 text-xs">{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-gray-700 px-4 py-4 space-y-4">
+        <div className="border-t border-zinc-700 px-4 py-4 space-y-4">
           {/* Price grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
@@ -131,8 +131,8 @@ function TradeCard({
               { label: 'Risk:Reward', val: null,              color: trade.riskReward >= 2 ? 'text-emerald-400' : 'text-yellow-400',
                 display: `1 : ${trade.riskReward.toFixed(2)}` },
             ].map(item => (
-              <div key={item.label} className="bg-gray-900 rounded-lg px-3 py-2">
-                <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+              <div key={item.label} className="bg-zinc-900 rounded-lg px-3 py-2">
+                <p className="text-xs text-zinc-500 mb-0.5">{item.label}</p>
                 <p className={`text-sm font-bold ${item.color}`}>
                   {item.val != null ? `${SYM}${fmt(item.val, 0)}` : (item as any).display}
                 </p>
@@ -147,7 +147,7 @@ function TradeCard({
               <span className="text-xl">{cfg.icon}</span>
               <div>
                 <p className={`font-bold text-sm ${cfg.text}`}>{evaluated.outcome}</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-zinc-400">
                   {evaluated.outcomeDate &&
                     `on ${new Date(evaluated.outcomeDate).toLocaleDateString('en-IN', {
                       day: '2-digit', month: 'short', year: '2-digit',
@@ -166,7 +166,7 @@ function TradeCard({
 
           {/* Live status — open trades */}
           {evaluated.outcome === 'Open' && evaluated.currentPrice != null && (
-            <div className="grid grid-cols-4 gap-3 bg-gray-900 rounded-lg px-4 py-3">
+            <div className="grid grid-cols-4 gap-3 bg-zinc-900 rounded-lg px-4 py-3">
               {[
                 { label: 'Current Price', val: `${SYM}${fmt(evaluated.currentPrice, 0)}` },
                 { label: 'P&L',           val: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`, color: pnlColor },
@@ -174,7 +174,7 @@ function TradeCard({
                 { label: 'Confidence',    val: `${trade.confidence.toFixed(0)}%` },
               ].map(item => (
                 <div key={item.label}>
-                  <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+                  <p className="text-xs text-zinc-500 mb-0.5">{item.label}</p>
                   <p className={`text-sm font-bold ${(item as any).color ?? 'text-white'}`}>{item.val}</p>
                 </div>
               ))}
@@ -184,7 +184,7 @@ function TradeCard({
           {/* Note */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">📝 Note</p>
+              <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide">📝 Note</p>
               {!editingNote && (
                 <button
                   onClick={() => setEditingNote(true)}
@@ -197,7 +197,7 @@ function TradeCard({
             {editingNote ? (
               <div className="space-y-2">
                 <textarea
-                  className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white resize-none focus:outline-none focus:border-brand-500"
+                  className="w-full bg-zinc-900 border border-zinc-600 rounded-lg px-3 py-2 text-xs text-white resize-none focus:outline-none focus:border-brand-500"
                   rows={3}
                   value={noteVal}
                   onChange={e => setNoteVal(e.target.value)}
@@ -211,14 +211,14 @@ function TradeCard({
                   >Save</button>
                   <button
                     onClick={() => { setNoteVal(trade.note); setEditingNote(false) }}
-                    className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                    className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg transition-colors"
                   >Cancel</button>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-400 italic">
+              <p className="text-xs text-zinc-400 italic">
                 {noteVal || (
-                  <span className="text-gray-600">
+                  <span className="text-zinc-600">
                     No note yet. Click "Add note" to record your thesis.
                   </span>
                 )}
@@ -230,7 +230,7 @@ function TradeCard({
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => onSelectTicker(trade.ticker)}
-              className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors"
             >
               📊 Load Stock
             </button>
@@ -296,7 +296,7 @@ export function PinnedTradesPanel({ onSelectTicker }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <p className="panel-title">📌 Pinned Trades</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-0.5">
             {trades.length} trade{trades.length !== 1 ? 's' : ''} tracked
             {btst > 0 && ` · ${btst} BTST`}
             {rec  > 0 && ` · ${rec} Recommendation`}
@@ -310,7 +310,7 @@ export function PinnedTradesPanel({ onSelectTicker }: Props) {
               className={`text-xs px-3 py-1.5 rounded-full transition-colors font-medium ${
                 filter === f
                   ? 'bg-brand-700 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
               }`}
             >
               {f}
@@ -322,7 +322,7 @@ export function PinnedTradesPanel({ onSelectTicker }: Props) {
       {/* Trade list */}
       <div className="space-y-2">
         {filteredTrades.length === 0 ? (
-          <p className="text-xs text-gray-500 text-center py-4">
+          <p className="text-xs text-zinc-500 text-center py-4">
             No {filter.toLowerCase()} trades.
           </p>
         ) : (
@@ -338,7 +338,7 @@ export function PinnedTradesPanel({ onSelectTicker }: Props) {
         )}
       </div>
 
-      <p className="text-xs text-gray-700 text-center">
+      <p className="text-xs text-zinc-700 text-center">
         Trades stored in backend SQLite DB · outcome evaluated from daily OHLC
       </p>
     </div>

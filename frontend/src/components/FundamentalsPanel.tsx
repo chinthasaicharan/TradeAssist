@@ -49,9 +49,9 @@ export function FundamentalsPanel({ ticker }: Props) {
       <div className="flex items-center justify-between">
         <p className="panel-title">Fundamentals</p>
         {(fundamentals.sector || fundamentals.industry) && (
-          <div className="text-right text-xs text-gray-500">
+          <div className="text-right text-xs text-zinc-500">
             {fundamentals.sector && <span className="text-brand-500 font-medium">{fundamentals.sector}</span>}
-            {fundamentals.industry && <span className="text-gray-500"> · {fundamentals.industry}</span>}
+            {fundamentals.industry && <span className="text-zinc-500"> · {fundamentals.industry}</span>}
           </div>
         )}
       </div>
@@ -67,10 +67,10 @@ export function FundamentalsPanel({ ticker }: Props) {
 
       {fundamentals.description && (
         <details className="mt-2">
-          <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition">
+          <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-300 transition">
             Company description
           </summary>
-          <p className="mt-2 text-xs text-gray-400 leading-relaxed line-clamp-4">{fundamentals.description}</p>
+          <p className="mt-2 text-xs text-zinc-400 leading-relaxed line-clamp-4">{fundamentals.description}</p>
         </details>
       )}
     </div>

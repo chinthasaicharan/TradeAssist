@@ -24,8 +24,8 @@ const VERDICT_CFG = {
     icon: '📈', meter: '#3b82f6',
   },
   'Avoid': {
-    bg: 'bg-gray-800', border: 'border-gray-600',
-    text: 'text-gray-300', badge: 'bg-gray-700 text-gray-300',
+    bg: 'bg-zinc-800', border: 'border-zinc-600',
+    text: 'text-zinc-300', badge: 'bg-zinc-700 text-zinc-300',
     icon: '⏸️', meter: '#6b7280',
   },
   'Strong Avoid': {
@@ -45,11 +45,11 @@ function ScoreBar({ signal }: { signal: BTSTSignal }) {
     : '#6b7280'
 
   return (
-    <div className="bg-gray-800 rounded-lg px-3 py-2.5 space-y-1.5">
+    <div className="bg-zinc-800 rounded-lg px-3 py-2.5 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
         <div>
           <span className="text-xs font-semibold text-white">{signal.factor}</span>
-          <span className="text-xs text-gray-400 ml-2">({signal.value})</span>
+          <span className="text-xs text-zinc-400 ml-2">({signal.value})</span>
         </div>
         <span className={`text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${
           pos ? 'bg-emerald-900 text-emerald-400' : 'bg-red-900 text-red-400'
@@ -57,11 +57,11 @@ function ScoreBar({ signal }: { signal: BTSTSignal }) {
           {pos ? '+' : ''}{(signal.score * 100).toFixed(0)}
         </span>
       </div>
-      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <p className="text-xs text-gray-500 leading-relaxed">{signal.note}</p>
+      <p className="text-xs text-zinc-500 leading-relaxed">{signal.note}</p>
     </div>
   )
 }
@@ -71,16 +71,16 @@ const CandleTooltip = ({ active, payload, label }: any) => {
   const d = payload[0]?.payload
   if (!d) return null
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs shadow-xl space-y-1">
-      <p className="text-gray-400 font-medium truncate max-w-[160px]">{label}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl space-y-1">
+      <p className="text-zinc-400 font-medium truncate max-w-[160px]">{label}</p>
       {[['O', d.open], ['H', d.high], ['L', d.low], ['C', d.close]].map(([k, v]) => (
         <p key={k as string} className="flex justify-between gap-3">
-          <span className="text-gray-500">{k}:</span>
+          <span className="text-zinc-500">{k}:</span>
           <span className="font-bold text-white">{SYM}{fmt(v as number, 0)}</span>
         </p>
       ))}
-      <p className="flex justify-between gap-3 border-t border-gray-700 pt-1 mt-1">
-        <span className="text-gray-500">Vol:</span>
+      <p className="flex justify-between gap-3 border-t border-zinc-700 pt-1 mt-1">
+        <span className="text-zinc-500">Vol:</span>
         <span className="font-bold text-white">{((d.volume as number) / 1e6).toFixed(2)}M</span>
       </p>
     </div>
@@ -186,7 +186,7 @@ export function BTSTPanel({ ticker, companyName }: Props) {
             className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold transition-all border ${
               pinned
                 ? 'bg-amber-900 border-amber-600 text-amber-300 hover:bg-amber-800'
-                : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-amber-300'
+                : 'bg-zinc-800 border-zinc-600 text-zinc-400 hover:bg-zinc-700 hover:text-amber-300'
             } ${pinMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
           >
             <span>{pinned ? '📌' : '📊'}</span>
@@ -203,12 +203,12 @@ export function BTSTPanel({ ticker, companyName }: Props) {
               <span className="text-3xl">{cfg.icon}</span>
               <span className={`text-2xl font-black ${cfg.text}`}>{data.verdict}</span>
             </div>
-            <p className="text-xs text-gray-400 max-w-lg leading-relaxed">{data.summary}</p>
+            <p className="text-xs text-zinc-400 max-w-lg leading-relaxed">{data.summary}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Confidence</p>
+            <p className="text-xs text-zinc-400 mb-0.5">Confidence</p>
             <p className={`text-4xl font-black ${cfg.text}`}>{data.confidence_pct.toFixed(0)}%</p>
-            <div className="mt-1.5 h-2 w-24 bg-gray-700 rounded-full overflow-hidden ml-auto">
+            <div className="mt-1.5 h-2 w-24 bg-zinc-700 rounded-full overflow-hidden ml-auto">
               <div className="h-full rounded-full" style={{ width: `${data.confidence_pct}%`, backgroundColor: cfg.meter }} />
             </div>
           </div>
@@ -217,13 +217,13 @@ export function BTSTPanel({ ticker, companyName }: Props) {
         {/* Composite meter */}
         <div className="mt-4">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Composite Score</span>
+            <span className="text-zinc-400">Composite Score</span>
             <span className={`font-black ${cfg.text}`}>
               {data.composite_score > 0 ? '+' : ''}{data.composite_score}
             </span>
           </div>
-          <div className="relative h-3 bg-gray-700 rounded-full overflow-hidden">
-            <div className="absolute left-1/2 top-0 h-full w-px bg-gray-500" />
+          <div className="relative h-3 bg-zinc-700 rounded-full overflow-hidden">
+            <div className="absolute left-1/2 top-0 h-full w-px bg-zinc-500" />
             <div className="absolute top-0 h-full rounded-full transition-all"
               style={{
                 left:  data.composite_score >= 0 ? '50%' : `${50 + data.composite_score / 2}%`,
@@ -231,7 +231,7 @@ export function BTSTPanel({ ticker, companyName }: Props) {
                 backgroundColor: cfg.meter,
               }} />
           </div>
-          <div className="flex justify-between text-xs text-gray-600 mt-0.5">
+          <div className="flex justify-between text-xs text-zinc-600 mt-0.5">
             <span>-100 Avoid</span><span>0</span><span>+100 Strong BTST</span>
           </div>
         </div>
@@ -275,7 +275,7 @@ export function BTSTPanel({ ticker, companyName }: Props) {
 
       {/* 5-day price chart */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">5-Day Price Action (15-min / Daily)</p>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">5-Day Price Action (15-min / Daily)</p>
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -312,7 +312,7 @@ export function BTSTPanel({ ticker, companyName }: Props) {
 
       {/* Factor signals */}
       <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-2">Signal Breakdown</p>
+        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-2">Signal Breakdown</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {data.signals.map((s, i) => <ScoreBar key={i} signal={s} />)}
         </div>

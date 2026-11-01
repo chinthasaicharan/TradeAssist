@@ -85,18 +85,18 @@ function WatchlistBuilder({ tickers, onChange }: {
   return (
     <div ref={containerRef} className="relative">
       <div
-        className="flex flex-wrap gap-1.5 items-center bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 min-h-[42px] cursor-text focus-within:border-brand-500 transition-colors"
+        className="flex flex-wrap gap-1.5 items-center bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 min-h-[42px] cursor-text focus-within:border-brand-500 transition-colors"
         onClick={() => inputRef.current?.focus()}
       >
         {tickers.map(t => (
-          <span key={t} className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-mono px-2 py-1 rounded-full transition-colors">
+          <span key={t} className="flex items-center gap-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs font-mono px-2 py-1 rounded-full transition-colors">
             {t.replace('.NS','').replace('.BO','')}
-            <button onClick={e => { e.stopPropagation(); remove(t) }} className="text-gray-500 hover:text-red-400 leading-none ml-0.5">×</button>
+            <button onClick={e => { e.stopPropagation(); remove(t) }} className="text-zinc-500 hover:text-red-400 leading-none ml-0.5">×</button>
           </span>
         ))}
         <div className="relative flex-1 min-w-[140px] flex items-center gap-1.5">
           {isFetching && (
-            <svg className="w-3 h-3 text-gray-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 text-zinc-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
             </svg>
@@ -108,17 +108,17 @@ function WatchlistBuilder({ tickers, onChange }: {
             onFocus={() => { if (input) setOpen(true) }}
             onKeyDown={handleKeyDown}
             placeholder={tickers.length === 0 ? 'Search stocks to add…' : 'Add more…'}
-            className="bg-transparent text-sm text-white placeholder-gray-600 outline-none w-full"
+            className="bg-transparent text-sm text-white placeholder-zinc-600 outline-none w-full"
           />
         </div>
         {tickers.length > 0 && (
-          <button onClick={() => onChange([])} className="text-xs text-gray-600 hover:text-gray-400 px-1 shrink-0" title="Clear all">Clear</button>
+          <button onClick={() => onChange([])} className="text-xs text-zinc-600 hover:text-zinc-400 px-1 shrink-0" title="Clear all">Clear</button>
         )}
       </div>
 
       {/* Dropdown */}
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
+        <ul className="absolute z-50 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
           {suggestions.map((s, idx) => {
             const already = tickers.includes(s.ticker)
             return (
@@ -126,29 +126,29 @@ function WatchlistBuilder({ tickers, onChange }: {
                 key={s.ticker}
                 onClick={() => !already && add(s.ticker)}
                 className={`flex items-center justify-between px-3 py-2.5 text-sm transition-colors
-                  ${already ? 'opacity-40 cursor-default' : 'cursor-pointer hover:bg-gray-700'}
-                  ${idx !== suggestions.length - 1 ? 'border-b border-gray-700/50' : ''}`}
+                  ${already ? 'opacity-40 cursor-default' : 'cursor-pointer hover:bg-zinc-700'}
+                  ${idx !== suggestions.length - 1 ? 'border-b border-zinc-700/50' : ''}`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-bold text-white font-mono w-20 shrink-0 text-xs">
                     {s.ticker.replace('.NS','').replace('.BO','')}
                   </span>
-                  <span className="text-gray-400 text-xs truncate">{s.name}</span>
+                  <span className="text-zinc-400 text-xs truncate">{s.name}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className="text-xs text-gray-600">{s.exchange}</span>
+                  <span className="text-xs text-zinc-600">{s.exchange}</span>
                   {already && <span className="text-xs text-brand-500">✓</span>}
                 </div>
               </li>
             )
           })}
-          <li className="px-3 py-1.5 text-center text-xs text-gray-600 border-t border-gray-700">
+          <li className="px-3 py-1.5 text-center text-xs text-zinc-600 border-t border-zinc-700">
             Press Enter to add first result · Backspace to remove last
           </li>
         </ul>
       )}
       {open && debounced.length >= 1 && suggestions.length === 0 && !isFetching && (
-        <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl shadow-2xl px-3 py-2.5 text-xs text-gray-400">
+        <div className="absolute z-50 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl px-3 py-2.5 text-xs text-zinc-400">
           No results for "<span className="text-white">{debounced}</span>"
         </div>
       )}
@@ -197,13 +197,13 @@ export function ORBScannerPanel({ onSelectTicker }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="panel-title mb-0">ORB Scanner</p>
-          <p className="text-xs text-gray-500 mt-0.5">Opening Range Breakout — stocks crossing today's opening range</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Opening Range Breakout — stocks crossing today's opening range</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {(['5m','15m','30m'] as Interval[]).map(i => (
             <button key={i} onClick={() => setInterval(i)}
               className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
-                interval === i ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                interval === i ? 'bg-brand-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
               }`}>{INTERVAL_LABELS[i]}</button>
           ))}
           <button
@@ -217,53 +217,53 @@ export function ORBScannerPanel({ onSelectTicker }: Props) {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 cursor-pointer w-fit" onClick={() => setUseCustom(v => !v)}>
-            <div className={`w-8 h-4 rounded-full transition-colors relative ${useCustom ? 'bg-brand-600' : 'bg-gray-700'}`}>
+            <div className={`w-8 h-4 rounded-full transition-colors relative ${useCustom ? 'bg-brand-600' : 'bg-zinc-700'}`}>
               <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${useCustom ? 'left-4' : 'left-0.5'}`} />
             </div>
-            <span className="text-xs text-gray-400">Custom watchlist</span>
+            <span className="text-xs text-zinc-400">Custom watchlist</span>
           </label>
           {!useCustom && (
-            <span className="text-xs text-gray-600">Default: Nifty 50 ({data?.scanned ?? '…'} stocks)</span>
+            <span className="text-xs text-zinc-600">Default: Nifty 50 ({data?.scanned ?? '…'} stocks)</span>
           )}
         </div>
         {useCustom && <WatchlistBuilder tickers={customTickers} onChange={setCustomTickers} />}
         {useCustom && customTickers.length === 0 && (
-          <p className="text-xs text-gray-600">Search and add stocks above to scan them</p>
+          <p className="text-xs text-zinc-600">Search and add stocks above to scan them</p>
         )}
       </div>
 
       {/* Stats */}
       {data && !isLoading && (
         <div className="flex items-center gap-4 text-xs flex-wrap">
-          <span className="text-gray-500">Scanned <span className="text-white font-bold">{data.scanned}</span></span>
+          <span className="text-zinc-500">Scanned <span className="text-white font-bold">{data.scanned}</span></span>
           <span className="text-emerald-400 font-semibold">▲ {data.bullish_count} bullish</span>
           <span className="text-red-400 font-semibold">▼ {data.bearish_count} bearish</span>
-          {data.session_date && <span className="text-gray-600">Session: <span className="text-gray-400">{data.session_date}</span></span>}
-          {updatedAt && <span className="text-gray-600 ml-auto">Updated {updatedAt}</span>}
+          {data.session_date && <span className="text-zinc-600">Session: <span className="text-zinc-400">{data.session_date}</span></span>}
+          {updatedAt && <span className="text-zinc-600 ml-auto">Updated {updatedAt}</span>}
         </div>
       )}
 
       {/* Loading skeleton */}
       {(isLoading || isFetching) && breakouts.length === 0 && (
         <div className="space-y-2">
-          {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-gray-800 rounded-lg animate-pulse" />)}
-          <p className="text-xs text-gray-600 text-center">Scanning for ORB breakouts…</p>
+          {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-zinc-800 rounded-lg animate-pulse" />)}
+          <p className="text-xs text-zinc-600 text-center">Scanning for ORB breakouts…</p>
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && !isFetching && breakouts.length === 0 && data && (
         <div className="text-center py-8">
-          <p className="text-gray-500 text-sm">No ORB breakouts found</p>
-          <p className="text-gray-600 text-xs mt-1">Market may be closed or no stocks have crossed their opening range</p>
+          <p className="text-zinc-500 text-sm">No ORB breakouts found</p>
+          <p className="text-zinc-600 text-xs mt-1">Market may be closed or no stocks have crossed their opening range</p>
         </div>
       )}
 
       {/* Pre-scan prompt */}
       {!hasScanned && (
         <div className="text-center py-8 space-y-3">
-          <p className="text-gray-500 text-sm">Click <span className="text-white font-semibold">▶ Scan</span> to detect ORB breakouts</p>
-          <p className="text-gray-600 text-xs">Scans Nifty 50 by default · switch to a custom watchlist above</p>
+          <p className="text-zinc-500 text-sm">Click <span className="text-white font-semibold">▶ Scan</span> to detect ORB breakouts</p>
+          <p className="text-zinc-600 text-xs">Scans Nifty 50 by default · switch to a custom watchlist above</p>
         </div>
       )}
 
@@ -302,45 +302,45 @@ function ORBRow({ result: b, onSelect }: { result: ORBResult; onSelect: (t: stri
   return (
     <button
       onClick={() => onSelect(b.ticker)}
-      className={`w-full flex items-center gap-3 bg-gray-800/60 border ${bg} rounded-lg px-3 py-2.5 transition-all text-left hover:bg-gray-800`}
+      className={`w-full flex items-center gap-3 bg-zinc-800/60 border ${bg} rounded-lg px-3 py-2.5 transition-all text-left hover:bg-zinc-800`}
     >
       <div className="w-24 shrink-0">
         <p className="text-sm font-bold text-white font-mono">{b.ticker.replace('.NS','').replace('.BO','')}</p>
-        <p className="text-xs text-gray-500">{b.ticker.endsWith('.NS') ? 'NSE' : 'BSE'}</p>
+        <p className="text-xs text-zinc-500">{b.ticker.endsWith('.NS') ? 'NSE' : 'BSE'}</p>
       </div>
       <div className="w-20 shrink-0">
         <p className={`text-sm font-bold ${color}`}>{SYM}{fmt(b.last_close)}</p>
-        <p className="text-xs text-gray-500">{isBull ? '↑' : '↓'} ORB {isBull ? 'H' : 'L'}: {SYM}{fmt(orbRef)}</p>
+        <p className="text-xs text-zinc-500">{isBull ? '↑' : '↓'} ORB {isBull ? 'H' : 'L'}: {SYM}{fmt(orbRef)}</p>
       </div>
       <div className="w-16 shrink-0 text-center">
         <p className={`text-sm font-bold ${color}`}>{isBull ? '+' : ''}{b.move_pct}%</p>
-        <p className="text-xs text-gray-500">from ORB</p>
+        <p className="text-xs text-zinc-500">from ORB</p>
       </div>
       <div className="w-16 shrink-0 text-center hidden sm:block">
         {b.rsi != null ? (
           <>
-            <p className={`text-sm font-bold ${b.rsi < 30 ? 'text-emerald-400' : b.rsi > 70 ? 'text-red-400' : 'text-gray-300'}`}>{b.rsi}</p>
-            <p className="text-xs text-gray-500">RSI</p>
+            <p className={`text-sm font-bold ${b.rsi < 30 ? 'text-emerald-400' : b.rsi > 70 ? 'text-red-400' : 'text-zinc-300'}`}>{b.rsi}</p>
+            <p className="text-xs text-zinc-500">RSI</p>
           </>
-        ) : <p className="text-xs text-gray-600">—</p>}
+        ) : <p className="text-xs text-zinc-600">—</p>}
       </div>
       <div className="w-16 shrink-0 text-center hidden md:block">
         {b.volume_vs_avg != null ? (
           <>
-            <p className={`text-sm font-bold ${b.volume_vs_avg > 1.5 ? 'text-amber-400' : 'text-gray-300'}`}>{b.volume_vs_avg}x</p>
-            <p className="text-xs text-gray-500">Vol/Avg</p>
+            <p className={`text-sm font-bold ${b.volume_vs_avg > 1.5 ? 'text-amber-400' : 'text-zinc-300'}`}>{b.volume_vs_avg}x</p>
+            <p className="text-xs text-zinc-500">Vol/Avg</p>
           </>
-        ) : <p className="text-xs text-gray-600">—</p>}
+        ) : <p className="text-xs text-zinc-600">—</p>}
       </div>
       <div className="ml-auto text-right hidden lg:block shrink-0">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-zinc-400">
           H: <span className="text-emerald-400">{SYM}{fmt(b.orb_high)}</span>
           {' · '}
           L: <span className="text-red-400">{SYM}{fmt(b.orb_low)}</span>
         </p>
-        <p className="text-xs text-gray-600">{b.bars_today} bars today</p>
+        <p className="text-xs text-zinc-600">{b.bars_today} bars today</p>
       </div>
-      <span className="text-gray-600 shrink-0">›</span>
+      <span className="text-zinc-600 shrink-0">›</span>
     </button>
   )
 }
