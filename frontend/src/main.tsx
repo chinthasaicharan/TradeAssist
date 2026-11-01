@@ -16,7 +16,9 @@ const queryClient = new QueryClient({
         return failureCount < 1   // one retry for everything else
       },
       staleTime: 60_000,
-      refetchOnWindowFocus: false,   // panels stay mounted after first open — avoid refetch storms
+      // No focus-refetch storms from stay-mounted sections — but errored
+      // queries self-heal on the next window focus instead of stuck error UI
+      refetchOnWindowFocus: (query) => query.state.status === 'error',
     },
   },
 })
