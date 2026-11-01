@@ -274,11 +274,18 @@ export interface ChatResponse {
 
 // ── Pine Script Strategies ────────────────────────────────────────────────────
 
+export interface ConditionRule {
+  indicator: string
+  operator: string
+  value: number | string
+}
+
 export interface PineStrategy {
   id: string
   name: string
   description: string
   script: string
+  conditions: ConditionRule[]
   is_builtin: boolean
   created_at: string
   updated_at: string
@@ -288,6 +295,43 @@ export interface PineStrategyIn {
   name: string
   description: string
   script: string
+  conditions: ConditionRule[]
+}
+
+export interface StrategyRuleResult {
+  indicator: string
+  label:    string
+  actual:   number | string | null
+  operator: string
+  threshold: number | string
+  passed:   boolean
+}
+
+export interface StrategyEvalResult {
+  ticker:  string
+  passed:  boolean
+  results: StrategyRuleResult[]
+  context: Record<string, number | string | null>
+}
+
+export interface StrategyScanRow {
+  ticker:       string
+  passed:       boolean
+  passed_count: number
+  total:        number
+  summary: {
+    price:         number | null
+    rsi:           number | null
+    price_vs_ma50: number | null
+    supertrend:    string | null
+    momentum_52w:  number | null
+  }
+}
+
+export interface StrategyScanResponse {
+  scanned: number
+  matched: number
+  results: StrategyScanRow[]
 }
 
 // ── Swing Trade Analyser ──────────────────────────────────────────────────────

@@ -91,4 +91,10 @@ def init_db() -> None:
             )
         """)
 
+        # Rule-based strategy conditions (JSON array) — custom strategy builder
+        try:
+            conn.execute("ALTER TABLE pine_strategies ADD COLUMN conditions TEXT NOT NULL DEFAULT '[]'")
+        except Exception:
+            pass  # column already exists
+
         conn.commit()

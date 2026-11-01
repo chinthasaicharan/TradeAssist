@@ -5,7 +5,7 @@ import type {
   ScreenerResponse, InsightsResponse,
   ValuationResponse, CashFlowResponse, RecommendationResponse,
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
-  PineStrategy, PineStrategyIn, SwingResponse,
+  PineStrategy, PineStrategyIn, StrategyEvalResult, StrategyScanResponse, SwingResponse,
   SmartMoneyScanResponse, StockSummaryResponse,
   TokenResponse, AuthUser,
 } from './types'
@@ -128,6 +128,12 @@ export const deleteStrategy = (id: string) =>
 
 export const forkStrategy = (id: string) =>
   api.post<PineStrategy>(`/strategies/${id}/fork`).then(r => r.data)
+
+export const evaluateStrategy = (id: string, ticker: string) =>
+  api.post<StrategyEvalResult>(`/strategies/${id}/evaluate`, { ticker }).then(r => r.data)
+
+export const scanStrategy = (id: string, tickers: string[]) =>
+  api.post<StrategyScanResponse>(`/strategies/${id}/scan`, { tickers }).then(r => r.data)
 
 // ── Swing Trade Analyser ──────────────────────────────────────────────────────
 

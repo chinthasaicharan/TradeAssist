@@ -524,7 +524,7 @@ export default function App() {
 
               <Section label="Strategies" open={open.strategies} onToggle={() => toggleSection('strategies')}>
                 <PanelBoundary name="Strategies">
-                  <PineScriptPanel ticker={ticker} onClose={() => toggleSection('strategies')} />
+                  <PineScriptPanel ticker={ticker} onClose={() => toggleSection('strategies')} onSelectTicker={handleSelect} />
                 </PanelBoundary>
               </Section>
 

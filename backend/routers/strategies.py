@@ -1,29 +1,58 @@
 """
-/api/strategies  — CRUD for Pine Script strategies.
+/api/strategies  — CRUD for Pine Script strategies + custom condition engine.
+
+Strategies come in two flavours:
+  • rule-based  — conditions JSON stored; Pine script auto-generated on save;
+                  can be evaluated against a ticker or scanned across a universe
+  • raw Pine    — user-authored script, conditions = []
+
 No login required: logged-out users share the 'anon' bucket; logged-in users
 see only their own strategies (built-ins are always visible).
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
+import cache
 from database import get_conn
 from routers.auth import get_optional_user
+from strategy_engine import (
+    INDICATORS,
+    evaluate_conditions,
+    generate_pine,
+    validate_condition,
+)
 
 router = APIRouter()
 
 ANON_USER = "anon"
 
 
+class ConditionIn(BaseModel):
+    indicator: str
+    operator: str
+    value: float | str
+
+    @model_validator(mode="after")
+    def check_rule(self):
+        err = validate_condition(self.model_dump())
+        if err:
+            raise ValueError(err)
+        return self
+
+
 class StrategyIn(BaseModel):
     name:        str
     description: str = ""
-    script:      str
+    script:      str = ""
+    conditions:  list[ConditionIn] = []
 
     @field_validator("name")
     @classmethod
@@ -35,12 +64,13 @@ class StrategyIn(BaseModel):
             raise ValueError("Strategy name must be ≤ 100 characters")
         return v
 
-    @field_validator("script")
-    @classmethod
-    def script_not_empty(cls, v: str) -> str:
-        if not v.strip():
+    @model_validator(mode="after")
+    def check_body(self):
+        if len(self.conditions) > 12:
+            raise ValueError("A strategy can have at most 12 conditions")
+        if not self.conditions and not self.script.strip():
             raise ValueError("Script cannot be empty")
-        return v
+        return self
 
 
 class StrategyOut(BaseModel):
@@ -48,17 +78,49 @@ class StrategyOut(BaseModel):
     name:        str
     description: str
     script:      str
+    conditions:  list[dict]
     is_builtin:  bool
     created_at:  str
     updated_at:  str
 
 
+class EvalIn(BaseModel):
+    ticker: str
+
+
+class ScanIn(BaseModel):
+    tickers: list[str] = []
+
+
 def _row(row) -> StrategyOut:
+    try:
+        conditions = json.loads(row["conditions"] or "[]")
+    except Exception:
+        conditions = []
     return StrategyOut(
         id=row["id"], name=row["name"], description=row["description"],
-        script=row["script"], is_builtin=bool(row["is_builtin"]),
+        script=row["script"], conditions=conditions,
+        is_builtin=bool(row["is_builtin"]),
         created_at=row["created_at"], updated_at=row["updated_at"],
     )
+
+
+def _finalize(body: StrategyIn) -> tuple[str, str]:
+    """Returns (script, conditions_json). Rule-based → generated Pine."""
+    if body.conditions:
+        script = generate_pine(body.name, body.description,
+                               [c.model_dump() for c in body.conditions])
+        conds_json = json.dumps([c.model_dump() for c in body.conditions])
+    else:
+        script, conds_json = body.script, "[]"
+    return script, conds_json
+
+
+def _get_strategy(strategy_id: str, uid: str):
+    with get_conn() as conn:
+        return conn.execute(
+            "SELECT * FROM pine_strategies WHERE id=? AND user_id=?", (strategy_id, uid)
+        ).fetchone()
 
 
 FIBO_SUPERTREND_SCRIPT = '''//@version=6
@@ -118,7 +180,8 @@ def list_strategies(user: Annotated[Optional[dict], Depends(get_optional_user)])
     now = datetime.now(timezone.utc).isoformat()
     builtins = [
         StrategyOut(id=b["id"], name=b["name"], description=b["description"],
-                    script=b["script"], is_builtin=True, created_at=now, updated_at=now)
+                    script=b["script"], conditions=[], is_builtin=True,
+                    created_at=now, updated_at=now)
         for b in BUILTIN_STRATEGIES if b["id"] not in existing_ids
     ]
     return builtins + user_strats
@@ -128,10 +191,11 @@ def list_strategies(user: Annotated[Optional[dict], Depends(get_optional_user)])
 def create_strategy(body: StrategyIn, user: Annotated[Optional[dict], Depends(get_optional_user)]):
     uid = user["id"] if user else ANON_USER
     now, new_id = datetime.now(timezone.utc).isoformat(), str(uuid.uuid4())
+    script, conds_json = _finalize(body)
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO pine_strategies (id,user_id,name,description,script,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,0,?,?)",
-            (new_id, uid, body.name, body.description, body.script, now, now),
+            "INSERT INTO pine_strategies (id,user_id,name,description,script,conditions,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,?,0,?,?)",
+            (new_id, uid, body.name, body.description, script, conds_json, now, now),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM pine_strategies WHERE id=?", (new_id,)).fetchone()
@@ -143,10 +207,11 @@ def update_strategy(strategy_id: str, body: StrategyIn,
                     user: Annotated[Optional[dict], Depends(get_optional_user)]):
     uid = user["id"] if user else ANON_USER
     now = datetime.now(timezone.utc).isoformat()
+    script, conds_json = _finalize(body)
     with get_conn() as conn:
         result = conn.execute(
-            "UPDATE pine_strategies SET name=?,description=?,script=?,updated_at=? WHERE id=? AND user_id=? AND is_builtin=0",
-            (body.name, body.description, body.script, now, strategy_id, uid),
+            "UPDATE pine_strategies SET name=?,description=?,script=?,conditions=?,updated_at=? WHERE id=? AND user_id=? AND is_builtin=0",
+            (body.name, body.description, script, conds_json, now, strategy_id, uid),
         )
         conn.commit()
         if result.rowcount == 0:
@@ -181,11 +246,110 @@ def fork_strategy(strategy_id: str, user: Annotated[Optional[dict], Depends(get_
         if row is None:
             raise HTTPException(404, "Strategy not found")
         source = dict(row)
+    raw_conds = source.get("conditions")
+    if isinstance(raw_conds, str):
+        conditions = raw_conds or "[]"
+    else:
+        conditions = json.dumps(raw_conds or [])
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO pine_strategies (id,user_id,name,description,script,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,0,?,?)",
-            (new_id, uid, f"Copy of {source['name']}", source.get("description",""), source["script"], now, now),
+            "INSERT INTO pine_strategies (id,user_id,name,description,script,conditions,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,?,0,?,?)",
+            (new_id, uid, f"Copy of {source['name']}", source.get("description",""),
+             source["script"], conditions, now, now),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM pine_strategies WHERE id=?", (new_id,)).fetchone()
     return _row(row)
+
+
+# ── Evaluation + market scan ──────────────────────────────────────────────────
+
+def _load_conditions(strategy_id: str, uid: str) -> list[dict]:
+    row = _get_strategy(strategy_id, uid)
+    if row is None:
+        raise HTTPException(404, "Strategy not found")
+    try:
+        conds = json.loads(row["conditions"] or "[]")
+    except Exception:
+        conds = []
+    if not conds:
+        raise HTTPException(400, "This strategy has no conditions to evaluate (raw Pine script)")
+    return conds
+
+
+@router.post("/api/strategies/{strategy_id}/evaluate")
+async def evaluate_strategy(strategy_id: str, body: EvalIn,
+                            user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
+    conds = _load_conditions(strategy_id, uid)
+    ticker = body.ticker.strip().upper()
+
+    cache_key = f"strategy-eval:{strategy_id}:{ticker}"
+    if (cached := cache.get(cache_key)) is not None:
+        return cached
+
+    import yf_client as yfc
+    hist = await yfc.fetch_history(ticker, period="2y", interval="1d")
+    if hist is None or hist.empty:
+        raise HTTPException(404, f"No history available for {ticker}")
+
+    result = evaluate_conditions(conds, hist)
+    result["ticker"] = ticker
+    cache.set(cache_key, result, ttl=300)
+    return result
+
+
+@router.post("/api/strategies/{strategy_id}/scan")
+async def scan_strategy(strategy_id: str, body: ScanIn,
+                        user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
+    conds = _load_conditions(strategy_id, uid)
+
+    from routers.market import DEFAULT_SMC_WATCHLIST
+    tickers = [t.strip().upper() for t in body.tickers if t and t.strip()]
+    if not tickers:
+        tickers = list(DEFAULT_SMC_WATCHLIST)
+    tickers = tickers[:50]
+
+    cache_key = f"strategy-scan:{strategy_id}:{','.join(sorted(tickers))}"
+    if (cached := cache.get(cache_key)) is not None:
+        return cached
+
+    import yf_client as yfc
+
+    async def scan_one(ticker: str) -> Optional[dict]:
+        try:
+            hist = await yfc.fetch_history(ticker, period="2y", interval="1d")
+            if hist is None or hist.empty:
+                return None
+            r = evaluate_conditions(conds, hist)
+            ctx = r["context"]
+            return {
+                "ticker": ticker,
+                "passed": r["passed"],
+                "passed_count": sum(1 for x in r["results"] if x["passed"]),
+                "total": len(r["results"]),
+                "summary": {
+                    "price": ctx.get("price"),
+                    "rsi": ctx.get("rsi"),
+                    "price_vs_ma50": ctx.get("price_vs_ma50"),
+                    "supertrend": ctx.get("supertrend"),
+                    "momentum_52w": ctx.get("momentum_52w"),
+                },
+            }
+        except Exception:
+            return None   # dead symbol, delisted, rate-limit — just skip
+
+    # Batches of 5, mirroring the smart-money scanner's pacing
+    rows: list[dict] = []
+    for i in range(0, len(tickers), 5):
+        batch = tickers[i:i + 5]
+        results = await asyncio.gather(*(scan_one(t) for t in batch))
+        rows.extend(r for r in results if r is not None)
+        if i + 5 < len(tickers):
+            await asyncio.sleep(0.8)
+
+    rows.sort(key=lambda r: (not r["passed"], -r["passed_count"], r["ticker"]))
+    out = {"scanned": len(rows), "matched": sum(1 for r in rows if r["passed"]), "results": rows}
+    cache.set(cache_key, out, ttl=600)
+    return out
