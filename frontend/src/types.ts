@@ -386,3 +386,19 @@ export interface StockSummaryResponse {
   quote: QuoteResponse
   fundamentals: FundamentalsResponse
 }
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id:         string
+  email:      string
+  username:   string
+  created_at: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type:   string
+  expires_in:   number
+  user:         AuthUser
+}

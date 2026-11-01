@@ -16,7 +16,9 @@ import { BTSTPanel } from './components/BTSTPanel'
 import { ChatWidget } from './components/ChatWidget'
 import { ChartPanel } from './components/ChartPanel'
 import { PaperTradesPanel } from './components/PaperTradesPanel'
+import { AuthPage } from './components/AuthPage'
 import { Logo } from './components/Logo'
+import { useAuth } from './AuthContext'
 import { ORBScannerPanel } from './components/ORBScannerPanel'
 import { SmartMoneyPanel } from './components/SmartMoneyPanel'
 import { PineScriptPanel } from './components/PineScriptPanel'
@@ -233,6 +235,9 @@ export default function App() {
     setFavs(prev => { const next = prev.filter(f => f !== t); saveFavs(next); return next })
   }
 
+  const { user, logout } = useAuth()
+  const [authOpen, setAuthOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header bar */}
@@ -261,6 +266,35 @@ export default function App() {
               {isFav ? '★' : '☆'}
             </button>
           )}
+          {/* Auth — user chip + logout, or Login button */}
+          <div className="shrink-0 ml-auto">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-7 h-7 rounded-full bg-brand-700 text-white flex items-center justify-center text-xs font-bold"
+                  title={user.email}
+                >
+                  {user.username[0]?.toUpperCase()}
+                </span>
+                <span className="text-sm font-semibold text-gray-300 hidden sm:block max-w-[120px] truncate">
+                  {user.username}
+                </span>
+                <button
+                  onClick={logout}
+                  className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-colors"
+              >
+                Login
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Favourites bar */}
@@ -480,6 +514,7 @@ export default function App() {
         TradeAssist · NSE/BSE Indian Stocks · Data from yfinance · For informational purposes only. Not financial advice.
       </footer>
 
+      {authOpen && <AuthPage onClose={() => setAuthOpen(false)} />}
       <ChatWidget ticker={ticker} />
     </div>
   )

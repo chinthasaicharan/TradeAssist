@@ -32,7 +32,8 @@ def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    # NOTE: foreign_keys intentionally OFF — user ids now come from Postgres
+    # (Neon) and cannot satisfy SQLite REFERENCES users(id) constraints.
     return conn
 
 
@@ -51,11 +52,11 @@ def init_db() -> None:
             )
         """)
 
-        # ── Pinned trades (user-scoped) ────────────────────────────────────
+        # ── Pinned trades (user-scoped; ids come from Postgres auth) ───────
         conn.execute("""
             CREATE TABLE IF NOT EXISTS pinned_trades (
                 id            TEXT PRIMARY KEY,
-                user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user_id       TEXT NOT NULL,
                 ticker        TEXT NOT NULL,
                 company_name  TEXT NOT NULL,
                 trade_type    TEXT NOT NULL CHECK (trade_type IN ('BTST','Recommendation')),
@@ -76,11 +77,11 @@ def init_db() -> None:
         except Exception:
             pass  # column already exists
 
-        # ── Pine Script Strategies (user-scoped) ──────────────────────────────
+        # ── Pine Script Strategies (user-scoped; ids come from Postgres auth) ─
         conn.execute("""
             CREATE TABLE IF NOT EXISTS pine_strategies (
                 id           TEXT PRIMARY KEY,
-                user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user_id      TEXT NOT NULL,
                 name         TEXT NOT NULL,
                 description  TEXT NOT NULL DEFAULT '',
                 script       TEXT NOT NULL,

@@ -13,7 +13,11 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: DATABASE_PATH
-        value: /var/data/tradeassist.db      # persistent disk mount
+        value: /var/data/tradeassist.db      # persistent disk mount (trades/strategies)
+      - key: DATABASE_URL
+        sync: false   # Neon pooled connection string — set in Render dashboard (secret)
+      - key: JWT_SECRET
+        sync: false   # long random string — set in Render dashboard (secret)
     disk:
       name: tradeassist-db
       mountPath: /var/data

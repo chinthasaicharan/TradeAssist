@@ -1,15 +1,19 @@
 """
-/api/strategies  — CRUD for Pine Script strategies (no auth required).
+/api/strategies  — CRUD for Pine Script strategies.
+No login required: logged-out users share the 'anon' bucket; logged-in users
+see only their own strategies (built-ins are always visible).
 """
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from database import get_conn
+from routers.auth import get_optional_user
 
 router = APIRouter()
 
@@ -102,11 +106,12 @@ BUILTIN_STRATEGIES = [
 
 
 @router.get("/api/strategies", response_model=list[StrategyOut])
-def list_strategies():
+def list_strategies(user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM pine_strategies WHERE user_id = ? ORDER BY is_builtin DESC, created_at DESC",
-            (ANON_USER,),
+            (uid,),
         ).fetchall()
     user_strats = [_row(r) for r in rows]
     existing_ids = {s.id for s in user_strats}
@@ -120,12 +125,13 @@ def list_strategies():
 
 
 @router.post("/api/strategies", response_model=StrategyOut, status_code=201)
-def create_strategy(body: StrategyIn):
+def create_strategy(body: StrategyIn, user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
     now, new_id = datetime.now(timezone.utc).isoformat(), str(uuid.uuid4())
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO pine_strategies (id,user_id,name,description,script,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,0,?,?)",
-            (new_id, ANON_USER, body.name, body.description, body.script, now, now),
+            (new_id, uid, body.name, body.description, body.script, now, now),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM pine_strategies WHERE id=?", (new_id,)).fetchone()
@@ -133,12 +139,14 @@ def create_strategy(body: StrategyIn):
 
 
 @router.put("/api/strategies/{strategy_id}", response_model=StrategyOut)
-def update_strategy(strategy_id: str, body: StrategyIn):
+def update_strategy(strategy_id: str, body: StrategyIn,
+                    user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
     now = datetime.now(timezone.utc).isoformat()
     with get_conn() as conn:
         result = conn.execute(
             "UPDATE pine_strategies SET name=?,description=?,script=?,updated_at=? WHERE id=? AND user_id=? AND is_builtin=0",
-            (body.name, body.description, body.script, now, strategy_id, ANON_USER),
+            (body.name, body.description, body.script, now, strategy_id, uid),
         )
         conn.commit()
         if result.rowcount == 0:
@@ -148,11 +156,12 @@ def update_strategy(strategy_id: str, body: StrategyIn):
 
 
 @router.delete("/api/strategies/{strategy_id}", status_code=204)
-def delete_strategy(strategy_id: str):
+def delete_strategy(strategy_id: str, user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
     with get_conn() as conn:
         result = conn.execute(
             "DELETE FROM pine_strategies WHERE id=? AND user_id=? AND is_builtin=0",
-            (strategy_id, ANON_USER),
+            (strategy_id, uid),
         )
         conn.commit()
     if result.rowcount == 0:
@@ -160,13 +169,14 @@ def delete_strategy(strategy_id: str):
 
 
 @router.post("/api/strategies/{strategy_id}/fork", response_model=StrategyOut, status_code=201)
-def fork_strategy(strategy_id: str):
+def fork_strategy(strategy_id: str, user: Annotated[Optional[dict], Depends(get_optional_user)]):
+    uid = user["id"] if user else ANON_USER
     now, new_id = datetime.now(timezone.utc).isoformat(), str(uuid.uuid4())
     source: dict | None = next((b for b in BUILTIN_STRATEGIES if b["id"] == strategy_id), None)
     if source is None:
         with get_conn() as conn:
             row = conn.execute(
-                "SELECT * FROM pine_strategies WHERE id=? AND user_id=?", (strategy_id, ANON_USER)
+                "SELECT * FROM pine_strategies WHERE id=? AND user_id=?", (strategy_id, uid)
             ).fetchone()
         if row is None:
             raise HTTPException(404, "Strategy not found")
@@ -174,7 +184,7 @@ def fork_strategy(strategy_id: str):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO pine_strategies (id,user_id,name,description,script,is_builtin,created_at,updated_at) VALUES (?,?,?,?,?,0,?,?)",
-            (new_id, ANON_USER, f"Copy of {source['name']}", source.get("description",""), source["script"], now, now),
+            (new_id, uid, f"Copy of {source['name']}", source.get("description",""), source["script"], now, now),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM pine_strategies WHERE id=?", (new_id,)).fetchone()

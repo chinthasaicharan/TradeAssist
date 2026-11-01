@@ -1,20 +1,20 @@
 import os
 import math
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
-from routers import search, market, insights, chat, trades, strategies
+from routers import search, market, insights, chat, trades, strategies, auth
 from database import init_db
+from db_postgres import init_postgres
+from ratelimit import limiter
 
 load_dotenv()
-
-limiter = Limiter(key_func=get_remote_address)
 
 
 # ── Custom JSON serialiser — converts nan/inf/-inf → null ─────────────────
@@ -40,6 +40,10 @@ class SafeJSONResponse(JSONResponse):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        init_postgres()          # no-op when DATABASE_URL is unset
+    except Exception as e:
+        logging.warning("Postgres init failed (auth will 503 until reachable): %s", e)
     await search.startup_load()
     yield
 
@@ -78,6 +82,7 @@ app.include_router(insights.router)
 app.include_router(chat.router)
 app.include_router(trades.router)
 app.include_router(strategies.router)
+app.include_router(auth.router)
 
 
 @app.get("/health")

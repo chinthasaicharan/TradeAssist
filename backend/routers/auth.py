@@ -1,24 +1,30 @@
 """
 /api/auth  — register, login, me
-JWT-based auth, 3-day expiry, bcrypt passwords.
-"""
-from __future__ import annotations
+JWT-based auth, 3-day expiry, bcrypt passwords. Users live in hosted
+Postgres (Neon) via db_postgres; 503 when DATABASE_URL is not configured.
 
+NOTE: no `from __future__ import annotations` here — string annotations
+break FastAPI's type resolution when slowapi's limiter decorator wraps the
+endpoint (the wrapper's __globals__ is slowapi's module, not this one).
+"""
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
+from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, EmailStr, field_validator
 
-from database import get_conn
+from db_postgres import get_pg, init_postgres, postgres_enabled
+from ratelimit import limiter
 
 router = APIRouter()
-bearer = HTTPBearer()
+bearer    = HTTPBearer(auto_error=True)    # for required-auth endpoints
+bearer_opt = HTTPBearer(auto_error=False)  # for optional-auth endpoints
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -61,13 +67,6 @@ class LoginIn(BaseModel):
     password: str
 
 
-class TokenOut(BaseModel):
-    access_token: str
-    token_type:   str = "bearer"
-    expires_in:   int  # seconds
-    user:         UserOut
-
-
 class UserOut(BaseModel):
     id:         str
     email:      str
@@ -75,8 +74,11 @@ class UserOut(BaseModel):
     created_at: str
 
 
-# Fix forward reference
-TokenOut.model_rebuild()
+class TokenOut(BaseModel):
+    access_token: str
+    token_type:   str = "bearer"
+    expires_in:   int  # seconds
+    user:         UserOut
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -114,55 +116,100 @@ def _decode_token(token: str) -> str:
         )
 
 
-# ── Dependency — use in any protected route ───────────────────────────────────
+def _require_pg() -> None:
+    """503 unless Postgres is configured and reachable."""
+    if not postgres_enabled():
+        raise HTTPException(status_code=503, detail="Auth not configured (DATABASE_URL missing)")
+    try:
+        init_postgres()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Auth database unavailable: {e}")
+
+
+def _user_out(row) -> UserOut:
+    return UserOut(id=row["id"], email=row["email"], username=row["username"],
+                   created_at=row["created_at"])
+
+
+# ── Dependencies — use in any route ──────────────────────────────────────────
 
 def get_current_user(
     creds: Annotated[HTTPAuthorizationCredentials, Depends(bearer)]
 ) -> dict:
     """FastAPI dependency. Returns user row dict or raises 401."""
     user_id = _decode_token(creds.credentials)
-    with get_conn() as conn:
+    _require_pg()
+    with get_pg() as conn:
         row = conn.execute(
-            "SELECT * FROM users WHERE id = ? AND is_active = 1", (user_id,)
+            "SELECT * FROM users WHERE id = %s AND is_active", (user_id,)
         ).fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="User not found or deactivated")
-    return dict(row)
+    return row
+
+
+def get_optional_user(
+    creds: Annotated[Optional[HTTPAuthorizationCredentials], Depends(bearer_opt)],
+) -> Optional[dict]:
+    """
+    User row dict when a valid Bearer token is present, else None.
+    Never raises 401 — for endpoints that serve both anon and logged-in users.
+    """
+    if creds is None:
+        return None
+    try:
+        user_id = _decode_token(creds.credentials)
+    except HTTPException:
+        return None
+    if not postgres_enabled():
+        return None
+    try:
+        with get_pg() as conn:
+            return conn.execute(
+                "SELECT * FROM users WHERE id = %s AND is_active", (user_id,)
+            ).fetchone()
+    except Exception:
+        return None   # DB hiccup → treat as anon rather than failing the request
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/register", response_model=TokenOut, status_code=201)
-def register(body: RegisterIn):
+@limiter.limit("10/minute")
+def register(request: Request, body: RegisterIn):
+    _require_pg()
     now     = datetime.now(timezone.utc).isoformat()
     user_id = str(uuid.uuid4())
 
-    with get_conn() as conn:
-        # Check uniqueness
-        existing = conn.execute(
-            "SELECT id FROM users WHERE email = ? OR username = ?",
-            (body.email, body.username),
-        ).fetchone()
-        if existing:
-            raise HTTPException(status_code=409, detail="Email or username already taken")
+    try:
+        with get_pg() as conn:
+            existing = conn.execute(
+                "SELECT id FROM users WHERE email = %s OR username = %s",
+                (body.email, body.username),
+            ).fetchone()
+            if existing:
+                raise HTTPException(status_code=409, detail="Email or username already taken")
 
-        conn.execute(
-            "INSERT INTO users (id, email, username, password_hash, created_at) VALUES (?,?,?,?,?)",
-            (user_id, body.email, body.username, _hash_password(body.password), now),
-        )
-        conn.commit()
-        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            conn.execute(
+                "INSERT INTO users (id, email, username, password_hash, created_at) VALUES (%s,%s,%s,%s,%s)",
+                (user_id, body.email, body.username, _hash_password(body.password), now),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+    except UniqueViolation:
+        raise HTTPException(status_code=409, detail="Email or username already taken")
 
     token = _create_token(user_id)
-    user  = UserOut(id=row["id"], email=row["email"], username=row["username"], created_at=row["created_at"])
-    return TokenOut(access_token=token, expires_in=TOKEN_DAYS * 86400, user=user)
+    return TokenOut(access_token=token, expires_in=TOKEN_DAYS * 86400, user=_user_out(row))
 
 
 @router.post("/api/auth/login", response_model=TokenOut)
-def login(body: LoginIn):
-    with get_conn() as conn:
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginIn):
+    _require_pg()
+    with get_pg() as conn:
         row = conn.execute(
-            "SELECT * FROM users WHERE (email = ? OR username = ?) AND is_active = 1",
+            "SELECT * FROM users WHERE (email = %s OR username = %s) AND is_active",
             (body.login, body.login),
         ).fetchone()
 
@@ -170,15 +217,9 @@ def login(body: LoginIn):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = _create_token(row["id"])
-    user  = UserOut(id=row["id"], email=row["email"], username=row["username"], created_at=row["created_at"])
-    return TokenOut(access_token=token, expires_in=TOKEN_DAYS * 86400, user=user)
+    return TokenOut(access_token=token, expires_in=TOKEN_DAYS * 86400, user=_user_out(row))
 
 
 @router.get("/api/auth/me", response_model=UserOut)
 def me(current_user: Annotated[dict, Depends(get_current_user)]):
-    return UserOut(
-        id=current_user["id"],
-        email=current_user["email"],
-        username=current_user["username"],
-        created_at=current_user["created_at"],
-    )
+    return _user_out(current_user)

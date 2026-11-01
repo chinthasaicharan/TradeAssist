@@ -7,6 +7,7 @@ import type {
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
   PineStrategy, PineStrategyIn, SwingResponse,
   SmartMoneyScanResponse, StockSummaryResponse,
+  TokenResponse, AuthUser,
 } from './types'
 
 export const api = axios.create({
@@ -17,6 +18,46 @@ export const api = axios.create({
 if (import.meta.env.VITE_API_URL) {
   axios.get(`${import.meta.env.VITE_API_URL}/health`).catch(() => {})
 }
+
+// ── Auth plumbing ─────────────────────────────────────────────────────────────
+
+const TOKEN_KEY = 'ta_token'
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY)
+export const setToken = (t: string | null) => {
+  if (t) localStorage.setItem(TOKEN_KEY, t)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+// Attach the JWT to every request
+api.interceptors.request.use(cfg => {
+  const t = getToken()
+  if (t) cfg.headers.Authorization = `Bearer ${t}`
+  return cfg
+})
+
+// A 401 from a protected endpoint means the token expired/was rejected —
+// self-clear the session. Auth endpoints themselves never trigger this.
+api.interceptors.response.use(
+  r => r,
+  err => {
+    const url: string = err.config?.url ?? ''
+    if (err.response?.status === 401 && !url.startsWith('/auth/')) {
+      setToken(null)
+      window.dispatchEvent(new Event('ta-unauthorized'))
+    }
+    return Promise.reject(err)
+  },
+)
+
+export const registerAuth = (email: string, username: string, password: string) =>
+  api.post<TokenResponse>('/auth/register', { email, username, password }).then(r => r.data)
+
+export const loginAuth = (login: string, password: string) =>
+  api.post<TokenResponse>('/auth/login', { login, password }).then(r => r.data)
+
+export const getMe = () =>
+  api.get<AuthUser>('/auth/me').then(r => r.data)
 
 // ── Market data ───────────────────────────────────────────────────────────────
 
