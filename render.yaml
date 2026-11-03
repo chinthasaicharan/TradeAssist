@@ -10,6 +10,8 @@ services:
         value: https://your-app.vercel.app   # update after Vercel deploy
       - key: GEMINI_API_KEY
         sync: false   # set manually in Render dashboard (secret)
+      - key: GROQ_API_KEY
+        sync: false   # optional — free LLM fallback for SWOT (secret)
       - key: OPENAI_API_KEY
         sync: false
       - key: DATABASE_PATH

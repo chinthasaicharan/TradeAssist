@@ -15,6 +15,17 @@ limiter = Limiter(key_func=get_remote_address)
 
 TICKER_RE = re.compile(r"^[A-Z0-9&.\-]{1,20}$")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+GROQ_BASE_URL   = "https://api.groq.com/openai/v1"
+
+# Placeholder values from .env.example — never call an API with these
+_PLACEHOLDER_KEYS = {"sk-your-gemini-key-here", "sk-your-openai-key-here", ""}
+
+
+def _usable(key: str) -> bool:
+    """Real keys come in many prefixes (AIza…, gsk…, sk-…) — anything
+    non-placeholder counts. The old startswith('sk-') gate silently blocked
+    genuine Google keys and made every SWOT fall back to the template."""
+    return key.strip() not in _PLACEHOLDER_KEYS
 
 
 def validate_ticker(ticker: str) -> str:
@@ -474,6 +485,31 @@ async def call_gemini(ticker: str, context: str) -> SWOTInsights:
     )
 
 
+async def call_groq(ticker: str, context: str) -> SWOTInsights:
+    """Free-tier fallback via Groq (OpenAI-compatible, Llama 3.3 70B)."""
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY", ""), base_url=GROQ_BASE_URL)
+    resp = await asyncio.wait_for(
+        client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
+            messages=[
+                {"role": "system", "content": "You are a senior equity research analyst. Respond with valid JSON only."},
+                {"role": "user",   "content": build_swot_prompt(ticker, context)},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+        ),
+        timeout=45.0,
+    )
+    raw = json.loads(resp.choices[0].message.content)
+    return SWOTInsights(
+        strengths=raw.get("strengths", []), weaknesses=raw.get("weaknesses", []),
+        opportunities=raw.get("opportunities", []), threats=raw.get("threats", []),
+        summary=raw.get("summary", ""),
+        generated_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 async def call_openai(ticker: str, context: str) -> SWOTInsights:
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -534,22 +570,27 @@ async def generate_insights(ticker: str, request: Request):
     context = format_prompt_context(ticker, info, headlines, tech, holdings)
 
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    groq_key   = os.getenv("GROQ_API_KEY", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
     insights: SWOTInsights | None = None
 
-    if gemini_key and gemini_key.startswith("sk-"):
+    # Gemini → Groq → OpenAI → deterministic template. A failure on one
+    # provider (timeout included) falls through to the next.
+    if _usable(gemini_key):
         try:
             insights = await call_gemini(ticker, context)
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=504, detail="AI analysis timed out — try again")
         except Exception as e:
             print(f"[insights] Gemini error: {e}")
 
-    if insights is None and openai_key and openai_key.startswith("sk-"):
+    if insights is None and _usable(groq_key):
+        try:
+            insights = await call_groq(ticker, context)
+        except Exception as e:
+            print(f"[insights] Groq error: {e}")
+
+    if insights is None and _usable(openai_key):
         try:
             insights = await call_openai(ticker, context)
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=504, detail="AI analysis timed out — try again")
         except Exception as e:
             print(f"[insights] OpenAI error: {e}")
 
