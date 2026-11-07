@@ -24,7 +24,24 @@ import { SmartMoneyPanel } from './components/SmartMoneyPanel'
 import { PineScriptPanel } from './components/PineScriptPanel'
 import { SwingPanel } from './components/SwingPanel'
 import { SwingSearchWidget } from './components/SwingSearchWidget'
+import { StrategiesPage } from './components/StrategiesPage'
+import { SectorsPage } from './components/SectorsPage'
+import { FnOPage } from './components/FnOPage'
 import { getRecommendation, getSwing } from './api'
+
+// ── Top-menu views (hash-synced so refresh/back keeps the page) ─────────────
+type View = 'analysis' | 'strategies' | 'sectors' | 'fno'
+const NAV: { key: View; label: string }[] = [
+  { key: 'analysis',    label: 'Dashboard'  },
+  { key: 'strategies',  label: 'Strategies' },
+  { key: 'sectors',     label: 'Sectors'    },
+  { key: 'fno',         label: 'FnO'        },
+]
+
+function viewFromHash(): View {
+  const h = window.location.hash.replace(/^#\/?/, '').toLowerCase()
+  return h === 'strategies' || h === 'sectors' || h === 'fno' ? h : 'analysis'
+}
 
 // ── Buy/Sell badge shown inline on the section header ─────────────────────
 const SIGNAL_STYLE: Record<string, string> = {
@@ -211,6 +228,21 @@ export default function App() {
     return resolveAlias(raw).renamed
   })
   const [open, setOpen] = useState<Record<SectionKey, boolean>>(loadSections)
+  const [view, setView] = useState<View>(viewFromHash)
+
+  const go = useCallback((v: View) => {
+    setView(v)
+    try {
+      window.history.replaceState(null, '', v === 'analysis' ? '#' : `#/${v}`)
+    } catch {}
+    window.scrollTo({ top: 0 })
+  }, [])
+
+  useEffect(() => {
+    const onHash = () => setView(viewFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   useEffect(() => {
     if (ticker) {
@@ -241,8 +273,8 @@ export default function App() {
     setRenamedFrom(null)
     if (name) setCompanyName(name)
     else setCompanyName(t)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+    go('analysis')
+  }, [go])
 
   const isFav = favs.includes(ticker)
   const toggleFav = () => {
@@ -269,12 +301,28 @@ export default function App() {
           {/* Logo — click to go home */}
           <div
             className="flex items-center gap-2 shrink-0 cursor-pointer"
-            onClick={() => setTicker('')}
+            onClick={() => { setTicker(''); go('analysis') }}
             title="Home"
           >
             <Logo size={32} className="hover:opacity-80 transition-opacity" />
             <span className="font-bold text-white hidden sm:block hover:text-brand-400 transition-colors">TradeAssist</span>
           </div>
+          {/* Top menu */}
+          <nav className="flex items-center gap-0.5 shrink-0 ml-1">
+            {NAV.map(n => (
+              <button
+                key={n.key}
+                onClick={() => go(n.key)}
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
+                  view === n.key
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.05]'
+                }`}
+              >
+                {n.label}
+              </button>
+            ))}
+          </nav>
           {/* Search */}
           <StockSearch onSelect={handleSelect} currentTicker={ticker} />
           {/* Favourite star — only when a stock is loaded */}
@@ -348,7 +396,19 @@ export default function App() {
       </header>
 
       <main className="max-w-screen-2xl mx-auto px-4 py-6 space-y-4">
-        {!ticker ? (
+        {view === 'strategies' ? (
+          <PanelBoundary name="Strategies">
+            <StrategiesPage onSelectTicker={handleSelect} favs={favs} />
+          </PanelBoundary>
+        ) : view === 'sectors' ? (
+          <PanelBoundary name="Sectors">
+            <SectorsPage onSelect={handleSelect} />
+          </PanelBoundary>
+        ) : view === 'fno' ? (
+          <PanelBoundary name="FnO">
+            <FnOPage />
+          </PanelBoundary>
+        ) : !ticker ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center mb-6">
               <Logo size={64} />
@@ -534,7 +594,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-white/[0.06] mt-8 px-4 py-5 text-center text-xs text-zinc-600">
-        TradeAssist · NSE/BSE Indian Stocks · Data from yfinance · For informational purposes only. Not financial advice.
+        TradeAssist · NSE/BSE Indian Stocks · Data from yfinance & Kotak Neo · For informational purposes only. Not financial advice.
       </footer>
 
       {authOpen && <AuthPage onClose={() => setAuthOpen(false)} />}

@@ -316,6 +316,7 @@ export interface StrategyEvalResult {
 
 export interface StrategyScanRow {
   ticker:       string
+  sector?:      string | null
   passed:       boolean
   passed_count: number
   total:        number
@@ -332,6 +333,159 @@ export interface StrategyScanResponse {
   scanned: number
   matched: number
   results: StrategyScanRow[]
+}
+
+// ── Sectors dashboard ─────────────────────────────────────────────────────────
+
+export interface SectorInfo {
+  name:    string
+  index:   string | null
+  tickers: string[]
+}
+
+export interface DailyChange {
+  date: string | null
+  pct:  number | null
+}
+
+export interface SectorStock {
+  ticker:      string
+  date:        string
+  price:       number
+  pct_1d:      number | null
+  pct_5d:      number | null
+  pct_1m:      number | null
+  volume:      number
+  flow_1d_cr:  number | null
+  flow_5d_cr:  number
+}
+
+export interface SectorRow {
+  name:           string
+  index:          string | null
+  index_value:    number | null
+  change_1d:      number | null
+  change_5d:      number | null
+  change_1m:      number | null
+  daily_changes:  DailyChange[]
+  constituents:   number
+  advancers:      number
+  decliners:      number
+  flow_1d_cr:     number
+  flow_5d_cr:     number
+  top_gainer:     { ticker: string; pct_1d: number } | null
+  top_loser:      { ticker: string; pct_1d: number } | null
+  stocks:         SectorStock[]
+}
+
+export interface SectorsOverview {
+  as_of:              string | null
+  benchmark: {
+    name:             string
+    index:            string
+    value:            number | null
+    change_1d:        number | null
+    change_5d:        number | null
+    change_1m:        number | null
+    daily_changes:    DailyChange[]
+  }
+  advancers:          number
+  decliners:          number
+  unchanged:          number
+  total_flow_1d_cr:   number
+  total_flow_5d_cr:   number
+  scanned:            number
+  sectors:            SectorRow[]
+}
+
+// ── FnO desk (Kotak Neo) ──────────────────────────────────────────────────────
+
+export interface FnoStatus {
+  configured:        boolean
+  connected:         boolean
+  package_installed: boolean
+  index_underlyings: string[]
+  stock_underlyings: string[]
+}
+
+export interface FnoOptionSide {
+  symbol:      string
+  ltp:         number | null
+  prev_close:  number | null
+  volume:      number
+  oi:          number
+  oi_change:   number
+  moneyness:   string | null
+}
+
+export interface FnoStrikeRow {
+  strike: number
+  ce: FnoOptionSide | null
+  pe: FnoOptionSide | null
+}
+
+export interface FnoChain {
+  underlying: string
+  expiry:     string | null
+  source:     string
+  lot_size:   number | null
+  spot_est:   number | null
+  strikes:    FnoStrikeRow[]
+}
+
+export interface FnoLevel { strike: number; oi: number }
+
+export interface FnoAnalysis {
+  pcr_oi:              number | null
+  total_ce_oi:         number
+  total_pe_oi:         number
+  total_ce_oi_change:  number
+  total_pe_oi_change:  number
+  max_pain:            number | null
+  atm:                 number | null
+  supports:            FnoLevel[]
+  resistances:         FnoLevel[]
+  call_buildup:        string | null
+  put_buildup:         string | null
+  buildup_bias:        number
+  sentiment:           string
+  sentiment_score:     number
+  notes:               string[]
+  strikes_analysed:    number
+}
+
+export interface FnoAnalysisResponse extends FnoAnalysis {
+  underlying: string
+  expiry:     string | null
+  lot_size:   number | null
+  spot_est:   number | null
+  strikes:    FnoStrikeRow[]
+}
+
+export interface FnoTrade {
+  action:       string          // BUY | SELL
+  option:       string          // CE | PE
+  strike:       number | string
+  rationale:    string
+  risk:         string
+  invalidation: string
+  target:       string
+  horizon:      string
+}
+
+export interface FnoSuggestion {
+  underlying:      string
+  expiry:          string | null
+  spot_est:        number | null
+  lot_size:        number | null
+  sentiment:       string
+  sentiment_score: number
+  bias:            string
+  confidence_pct:  number
+  trades:          FnoTrade[]
+  summary:         string
+  provider:        string
+  generated_at:    string
 }
 
 // ── Swing Trade Analyser ──────────────────────────────────────────────────────

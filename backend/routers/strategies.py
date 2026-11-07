@@ -29,6 +29,7 @@ from strategy_engine import (
     generate_pine,
     validate_condition,
 )
+from sector_map import get_sector_for
 
 router = APIRouter()
 
@@ -324,8 +325,10 @@ async def scan_strategy(strategy_id: str, body: ScanIn,
                 return None
             r = evaluate_conditions(conds, hist)
             ctx = r["context"]
+            sector = await get_sector_for(ticker)
             return {
                 "ticker": ticker,
+                "sector": sector,
                 "passed": r["passed"],
                 "passed_count": sum(1 for x in r["results"] if x["passed"]),
                 "total": len(r["results"]),

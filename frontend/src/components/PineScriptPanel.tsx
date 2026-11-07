@@ -30,7 +30,7 @@ const OP_LABEL: Record<string, string> = {
   cross_above: 'crosses above', cross_below: 'crosses below',
 }
 
-function ruleText(r: ConditionRule): string {
+export function ruleText(r: ConditionRule): string {
   const meta = INDICATORS[r.indicator]
   if (!meta) return 'unknown rule'
   if (meta.kind === 'string') return `${meta.label} is ${r.value}`
@@ -126,7 +126,7 @@ function ConditionRow({ rule, onChange, onRemove }: {
 }
 
 // ── Editor modal (rule builder | pine script) ────────────────────────────────
-function EditorModal({ initial, onClose }: { initial: PineStrategy | null; onClose: () => void }) {
+export function EditorModal({ initial, onClose }: { initial: PineStrategy | null; onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState(initial?.name ?? '')
   const [desc, setDesc] = useState(initial?.description ?? '')

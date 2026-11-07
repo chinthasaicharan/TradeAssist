@@ -93,7 +93,10 @@ def _fallback_symbols(symbol: str) -> list[str]:
     elif sym.endswith(".BO"):
         candidates = [sym, f"{base}.NS", base]
     elif "." not in sym:
-        candidates = [f"{sym}.NS", f"{sym}.BO", sym]
+        if sym.startswith("^"):        # index symbols are never suffixed
+            candidates = [sym]
+        else:
+            candidates = [f"{sym}.NS", f"{sym}.BO", sym]
     # Deduplicate preserving order
     seen, out = set(), []
     for c in candidates:

@@ -7,7 +7,8 @@ import type {
   HoldingsResponse, BTSTResponse, ChatRequest, ChatResponse,
   PineStrategy, PineStrategyIn, StrategyEvalResult, StrategyScanResponse, SwingResponse,
   SmartMoneyScanResponse, StockSummaryResponse,
-  TokenResponse, AuthUser,
+  TokenResponse, AuthUser, SectorInfo, SectorsOverview,
+  FnoStatus, FnoAnalysisResponse, FnoSuggestion,
 } from './types'
 
 export const api = axios.create({
@@ -134,6 +135,38 @@ export const evaluateStrategy = (id: string, ticker: string) =>
 
 export const scanStrategy = (id: string, tickers: string[]) =>
   api.post<StrategyScanResponse>(`/strategies/${id}/scan`, { tickers }).then(r => r.data)
+
+// ── Sectors dashboard ─────────────────────────────────────────────────────────
+
+export const getSectors = () =>
+  api.get<SectorInfo[]>('/sectors').then(r => r.data)
+
+export const getSectorsOverview = () =>
+  api.get<SectorsOverview>('/sectors/overview').then(r => r.data)
+
+// ── FnO desk (Kotak Neo) ──────────────────────────────────────────────────────
+
+export const getFnoStatus = () =>
+  api.get<FnoStatus>('/fno/status').then(r => r.data)
+
+export const connectFno = (mobile_number: string, ucc: string, totp: string, mpin: string) =>
+  api.post('/fno/connect', { mobile_number, ucc, totp, mpin }).then(r => r.data)
+
+export const disconnectFno = () =>
+  api.post('/fno/disconnect').then(r => r.data)
+
+export const getFnoExpiries = (underlying: string) =>
+  api.get<{ underlying: string; expiries: string[] }>('/fno/expiries', { params: { underlying } }).then(r => r.data)
+
+export const getFnoAnalysis = (underlying: string, expiry?: string) =>
+  api.get<FnoAnalysisResponse>('/fno/analysis', {
+    params: { underlying, ...(expiry ? { expiry } : {}) },
+  }).then(r => r.data)
+
+export const suggestFno = (underlying: string, expiry: string | null, risk_profile: string) =>
+  api.post<FnoSuggestion>('/fno/suggest', {
+    underlying, expiry, risk_profile,
+  }).then(r => r.data)
 
 // ── Swing Trade Analyser ──────────────────────────────────────────────────────
 

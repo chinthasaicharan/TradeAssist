@@ -553,7 +553,19 @@ async def generate_insights(ticker: str, request: Request):
             return_exceptions=True,
         )
         if isinstance(info, Exception) or not info:
-            raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
+            # Yahoo intermittently returns empty/stub info for perfectly valid
+            # tickers (rate-limits, TLS challenges). Confirm with history before
+            # claiming the ticker doesn't exist.
+            hist = await yfc.fetch_history(ticker, period="5d", interval="1d")
+            if hist is None or hist.empty:
+                raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
+            if not isinstance(info, Exception):
+                info = await yfc.fetch_info(ticker) or {}
+            if not info:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Quote data for {ticker} is unavailable right now — please retry in a moment",
+                )
         news_items = [] if isinstance(news_items, Exception) else (news_items or [])
         tech       = {} if isinstance(tech,       Exception) else (tech or {})
         holdings   = {} if isinstance(holdings,   Exception) else (holdings or {})

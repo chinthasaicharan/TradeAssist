@@ -9,7 +9,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
-from routers import search, market, insights, chat, trades, strategies, auth
+from routers import search, market, insights, chat, trades, strategies, auth, sectors, fno
 from database import init_db
 from db_postgres import init_postgres
 from ratelimit import limiter
@@ -82,6 +82,8 @@ app.include_router(insights.router)
 app.include_router(chat.router)
 app.include_router(trades.router)
 app.include_router(strategies.router)
+app.include_router(sectors.router)
+app.include_router(fno.router)
 app.include_router(auth.router)
 
 
